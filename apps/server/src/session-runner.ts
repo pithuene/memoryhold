@@ -1,6 +1,7 @@
 import { Agent, type AgentEvent, type AgentMessage, type ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { getEnvApiKey, getModel, streamSimple } from "@earendil-works/pi-ai";
+import { getModel, streamSimple } from "@earendil-works/pi-ai";
 import type { MessageEntry, ServerEvent, UploadedAttachmentRef } from "@memoryhold/shared";
+import { AuthStore } from "./auth-store.js";
 import { EventHub } from "./events.js";
 import { messageText, entriesToMessages } from "./message-utils.js";
 import { SessionRepo } from "./session-repo.js";
@@ -24,6 +25,7 @@ export class SessionRunner {
   constructor(
     private readonly repo: SessionRepo,
     private readonly events: EventHub,
+    private readonly authStore: AuthStore,
   ) {}
 
   async enqueueUserMessage(
@@ -64,10 +66,10 @@ export class SessionRunner {
     const agent = new Agent({
       sessionId: metadata.id,
       streamFn: streamSimple,
-      getApiKey: (provider) => {
-        const key = getEnvApiKey(provider as any);
+      getApiKey: async (provider) => {
+        const key = await this.authStore.getApiKey(provider);
         if (!key) {
-          throw new Error(`No credentials configured for provider '${provider}'. For now, set the provider API key in the server environment. OAuth UI is not implemented yet.`);
+          throw new Error(`No credentials configured for provider '${provider}'. Use the OAuth panel or set the provider API key in the server environment.`);
         }
         return key;
       },

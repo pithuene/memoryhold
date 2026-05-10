@@ -18,6 +18,10 @@ class MemoryholdApp extends LitElement {
   @state() private selectedProvider = "";
   @state() private selectedModel = "";
   @state() private thinkingLevel = "off";
+  @state() private oauthProviders: Array<{ id: string; name: string; authenticated: boolean }> = [];
+  @state() private loginId = "";
+  @state() private authUrl = "";
+  @state() private callbackInput = "";
   private eventSource?: EventSource;
 
   static styles = css`
@@ -42,10 +46,51 @@ class MemoryholdApp extends LitElement {
     super.connectedCallback();
     void this.loadSessions();
     void this.loadProviders();
+    void this.loadOAuthProviders();
   }
 
   private async loadSessions() {
     this.sessions = await fetch(`${API}/api/sessions`).then((r) => r.json());
+  }
+
+  private async loadOAuthProviders() {
+    this.oauthProviders = await fetch(`${API}/api/oauth/providers`).then((r) => r.json());
+  }
+
+  private async startOAuth(providerId: string) {
+    this.errorMessage = "";
+    const result = await fetch(`${API}/api/oauth/${providerId}/start`, { method: "POST" }).then((r) => r.json());
+    if (result.error) {
+      this.errorMessage = result.error;
+      return;
+    }
+    this.loginId = result.loginId;
+    this.authUrl = result.authUrl ?? "";
+    if (this.authUrl) window.open(this.authUrl, "_blank");
+  }
+
+  private async completeOAuth() {
+    if (!this.loginId || !this.callbackInput.trim()) return;
+    await fetch(`${API}/api/oauth/${this.loginId}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: this.callbackInput }),
+    });
+    for (let i = 0; i < 30; i++) {
+      const status = await fetch(`${API}/api/oauth/${this.loginId}/status`).then((r) => r.json());
+      if (status.status === "done") {
+        this.loginId = "";
+        this.authUrl = "";
+        this.callbackInput = "";
+        await this.loadOAuthProviders();
+        return;
+      }
+      if (status.status === "error") {
+        this.errorMessage = status.error;
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
   }
 
   private async loadProviders() {
@@ -146,6 +191,13 @@ class MemoryholdApp extends LitElement {
         <aside>
           <h2>Memoryhold</h2>
           <button @click=${this.newSession}>New conversation</button>
+          <h3>OAuth</h3>
+          ${this.oauthProviders.map((p) => html`<button style="display:block;margin:4px 0;background:${p.authenticated ? "#059669" : "#374151"}" @click=${() => this.startOAuth(p.id)}>${p.authenticated ? "✓" : "Login"} ${p.name}</button>`)}
+          ${this.loginId ? html`
+            <small>Browser opened. If callback does not complete, paste redirect URL/code:</small>
+            <textarea style="width:100%;min-height:60px" .value=${this.callbackInput} @input=${(e: InputEvent) => this.callbackInput = (e.target as HTMLTextAreaElement).value}></textarea>
+            <button @click=${this.completeOAuth}>Complete login</button>
+          ` : ""}
           <h3>Model</h3>
           <select .value=${this.selectedProvider} @change=${(e: Event) => {
             this.selectedProvider = (e.target as HTMLSelectElement).value;

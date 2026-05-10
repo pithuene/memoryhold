@@ -4,7 +4,9 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { SendMessageRequest } from "@memoryhold/shared";
 import { SessionRepo } from "./session-repo.js";
+import { AuthStore } from "./auth-store.js";
 import { EventHub } from "./events.js";
+import { createOAuthRoutes } from "./oauth-routes.js";
 import { SessionRunner } from "./session-runner.js";
 
 const conversationsDir = process.env.CONVERSATIONS_DIR;
@@ -14,11 +16,13 @@ if (!conversationsDir) {
 }
 
 const repo = new SessionRepo(conversationsDir);
+const authStore = new AuthStore(conversationsDir);
 const events = new EventHub();
-const runner = new SessionRunner(repo, events);
+const runner = new SessionRunner(repo, events, authStore);
 const app = new Hono();
 
 app.use("*", cors());
+app.route("/api/oauth", createOAuthRoutes(authStore));
 
 app.get("/api/health", (c) => c.json({ ok: true }));
 
