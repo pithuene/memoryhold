@@ -13,9 +13,9 @@ interface RuntimeState {
   isStreaming: boolean;
 }
 
-function userMessage(content: string, attachmentContext: string): AgentMessage {
+function userMessage(content: string, attachmentContext: string, attachments: UploadedAttachmentRef[]): AgentMessage {
   const suffix = attachmentContext ? `\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>\n${attachmentContext}\n</MEMORYHOLD_ATTACHMENT_CONTEXT>` : "";
-  return { role: "user", content: [{ type: "text", text: content + suffix }], timestamp: Date.now() } as AgentMessage;
+  return { role: "user", content: [{ type: "text", text: content + suffix }], attachments, timestamp: Date.now() } as AgentMessage;
 }
 
 function truncateText(text: string, maxChars = 40_000): string {
@@ -51,7 +51,7 @@ export class SessionRunner {
     }
 
     const attachmentContext = await this.buildAttachmentContext(slug, attachments);
-    const message = userMessage(content, attachmentContext);
+    const message = userMessage(content, attachmentContext, attachments);
     if (state.agent.state.isStreaming) {
       state.agent.steer(message);
       return { queued: true };

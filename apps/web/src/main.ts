@@ -78,20 +78,30 @@ class MemoryholdApp extends LitElement {
     .msg.error .bubble { padding:12px 14px 12px 38px; border-radius:12px; border:1px solid #f1b8b8; background:#fff7f7; color:#8a1f1f; position:relative; box-shadow:none; }
     .msg.error .bubble::before { content:"!"; position:absolute; left:14px; top:14px; width:16px; height:16px; border-radius:999px; display:grid; place-items:center; background:#ef4444; color:white; font-size:11px; font-weight:800; }
     form { padding:0 24px 8px; background:linear-gradient(180deg, rgba(255,255,255,0), #fff 22%); }
-    .composer { max-width:768px; margin:0 auto; display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:8px; padding:7px 8px; border:1px solid #d9d9d9; border-radius:28px; background:#fff; box-shadow:0 8px 28px rgba(0,0,0,.08); }
+    .composer { max-width:768px; margin:0 auto; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px; padding:7px 8px; border:1px solid #d9d9d9; border-radius:28px; background:#fff; box-shadow:0 8px 28px rgba(0,0,0,.08); }
     textarea { grid-column:2; min-height:42px; max-height:180px; resize:none; border:0; outline:0; background:transparent; color:#0d0d0d; padding:10px 6px; font:inherit; line-height:1.45; }
-    .send-btn { grid-column:4; align-self:center; min-width:42px; width:42px; height:42px; padding:0; border-radius:999px; font-size:0; position:relative; }
+    .send-btn { grid-column:3; align-self:center; min-width:42px; width:42px; height:42px; padding:0; border-radius:999px; font-size:0; position:relative; }
     .send-btn::before { content:"↑"; font-size:22px; line-height:1; }
     .composer-extra { grid-column:1; grid-row:1; display:flex; align-items:center; gap:8px; padding:0; color:#777; font-size:0; }
-    .voice-btn { grid-column:3; width:38px; height:38px; border-radius:999px; padding:0; background:transparent; color:#111; font-size:20px; display:grid; place-items:center; }
-    .voice-btn:hover { background:#f2f2f2; }
-
     input[type="file"] { display:none; }
     .file-label { display:grid; place-items:center; width:38px; height:38px; border-radius:999px; border:1px solid #e3e3e3; background:#fff; color:#111; font-size:0; cursor:pointer; }
     .file-label::before { content:"+"; font-size:24px; line-height:1; }
     .composer-extra span { display:none; }
-    .attachment-note { margin-top:10px; color:#777; font-size:13px; line-height:1.4; }
-    .attachment-note strong { color:#555; }
+    .selected-files { max-width:768px; margin:0 auto 8px; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+    .selected-file { max-width:220px; padding:7px 10px; border:1px solid #dedede; border-radius:12px; background:#fff; color:#555; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .attachment-list { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 8px; }
+    .attachment-chip { display:grid; grid-template-columns:28px minmax(0,1fr); gap:8px; align-items:center; max-width:280px; padding:8px 10px; border:1px solid #dedede; border-radius:14px; background:#fff; color:#111; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+    .msg.user .attachment-chip { background:#fff; }
+    .attachment-icon { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; background:#f0f0f0; font-size:15px; }
+    .attachment-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; line-height:1.2; }
+    .attachment-meta { color:#777; font-size:11px; line-height:1.2; }
+    .thinking-row { display:flex; align-items:center; gap:8px; margin:0 0 14px; color:#8a8a8a; font-size:16px; }
+    .thinking-caret { color:#aaa; font-size:18px; }
+    .thinking-dots { display:inline-flex; gap:3px; margin-left:1px; }
+    .thinking-dots span { width:4px; height:4px; border-radius:999px; background:#999; animation:thinkingPulse 1.2s infinite ease-in-out; }
+    .thinking-dots span:nth-child(2) { animation-delay:.16s; }
+    .thinking-dots span:nth-child(3) { animation-delay:.32s; }
+    @keyframes thinkingPulse { 0%, 80%, 100% { opacity:.25; transform:translateY(0); } 40% { opacity:1; transform:translateY(-2px); } }
     .markdown { white-space:normal; overflow-wrap:anywhere; }
     .markdown > :first-child { margin-top:0; }
     .markdown > :last-child { margin-bottom:0; }
@@ -217,9 +227,48 @@ class MemoryholdApp extends LitElement {
   }
 
   private renderMessage(message: any) {
-    const body = this.renderContent(message.content).replace(/\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>[\s\S]*?<\/MEMORYHOLD_ATTACHMENT_CONTEXT>/g, "");
+    const body = this.renderContent(message.content)
+      .replace(/\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>[\s\S]*?<\/MEMORYHOLD_ATTACHMENT_CONTEXT>/g, "")
+      .replace(/\n*Attachments saved locally:\n(?:\s*-\s+.*(?:\n|$))+/g, "")
+      .trim();
     const error = message.errorMessage ? `Error: ${message.errorMessage}` : "";
     return this.renderMarkdown([body, error].filter(Boolean).join("\n\n"));
+  }
+
+  private messageAttachments(message: any) {
+    if (message.attachments?.length) return message.attachments;
+    const text = this.renderContent(message.content);
+    const context = text.match(/<MEMORYHOLD_ATTACHMENT_CONTEXT>[\s\S]*?<\/MEMORYHOLD_ATTACHMENT_CONTEXT>/)?.[0] ?? "";
+    return Array.from(context.matchAll(/Attachment: (.+?) \((.+?), (attachments\/.+?)\)/g)).map((match) => ({
+      filename: match[1],
+      mimeType: match[2],
+      relativePath: match[3],
+    }));
+  }
+
+  private renderAttachments(attachments: any[] = []) {
+    if (!attachments.length) return "";
+    return html`<div class="attachment-list">
+      ${attachments.map((attachment) => html`<div class="attachment-chip" title=${attachment.relativePath ?? attachment.filename ?? "Attachment"}>
+        <div class="attachment-icon">${this.attachmentIcon(attachment.filename)}</div>
+        <div>
+          <div class="attachment-name">${attachment.filename ?? "Attachment"}</div>
+          <div class="attachment-meta">${attachment.mimeType || "Attached file"}</div>
+        </div>
+      </div>`)}
+    </div>`;
+  }
+
+  private attachmentIcon(filename = "") {
+    const lower = filename.toLowerCase();
+    if (lower.endsWith(".pdf")) return "PDF";
+    if (lower.match(/\.(png|jpe?g|gif|webp|svg)$/)) return "▧";
+    if (lower.match(/\.(ts|tsx|js|jsx|py|rs|go|java|c|cpp|h|css|html|json|md)$/)) return "{}";
+    return "↥";
+  }
+
+  private renderThinkingIndicator(label = "Thinking") {
+    return html`<div class="thinking-row"><span>${label}</span><span class="thinking-dots"><span></span><span></span><span></span></span><span class="thinking-caret">›</span></div>`;
   }
 
   private renderMarkdown(markdown: string) {
@@ -342,18 +391,18 @@ class MemoryholdApp extends LitElement {
                     const classes = `msg ${role} ${e.message.stopReason === "error" ? "error" : ""}`;
                     const label = `${role}${e.message.stopReason === "error" ? " · error" : ""}`;
                     const avatar = role === "user" ? "U" : role === "tool" ? "T" : "M";
-                    return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${this.renderMessage(e.message)}${e.message.attachments?.length ? html`<div class="attachment-note"><strong>Attachments included:</strong> ${e.message.attachments.map((a: any) => a.filename).join(", ")}</div>` : ""}</div></div></div>`;
+                    return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${this.renderAttachments(this.messageAttachments(e.message))}${this.renderMessage(e.message)}</div></div></div>`;
                   }
                   if (e.type === "model_change" || e.type === "thinking_level_change") return "";
                   return "";
                 })}
-                ${this.streamingContent ? html`<div class="msg assistant"><div class="avatar">M</div><div class="message-body"><div class="role">assistant · streaming</div><div class="bubble">${this.renderMarkdown(this.streamingContent)}</div></div></div>` : ""}
+                ${this.isStreaming || this.streamingContent ? html`<div class="msg assistant"><div class="avatar">M</div><div class="message-body"><div class="role">assistant · streaming</div><div class="bubble">${this.renderThinkingIndicator(this.streamingContent ? "Thinking" : "Thinking")}${this.streamingContent ? this.renderMarkdown(this.streamingContent) : ""}</div></div></div>` : ""}
               </div>` : html`<div class="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>`}
             </div>
             <form @submit=${this.send}>
+              ${this.files.length ? html`<div class="selected-files">${this.files.map((file) => html`<div class="selected-file">${file.name}</div>`)}</div>` : ""}
               <div class="composer">
                 <textarea .value=${this.draft} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
-                <button type="button" class="voice-btn" title="Voice input">⌕</button>
                 <button class="send-btn" title=${this.isStreaming ? "Queue message" : "Send message"}>${this.isStreaming ? "Queue" : "Send"}</button>
                 <div class="composer-extra">
                   <label class="file-label">＋ Attach<input type="file" multiple @change=${(e: Event) => this.files = Array.from((e.target as HTMLInputElement).files ?? [])} /></label>
