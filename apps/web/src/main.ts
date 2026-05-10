@@ -45,15 +45,11 @@ class MemoryholdApp extends LitElement {
     button:hover { background:#2f2f2f; }
     button.secondary { background:#f4f4f4; color:#0d0d0d; border:1px solid #e3e3e3; }
     button.success { background:#e7f8ef; color:#087443; border:1px solid #bbe8cf; }
-    .new-btn, .nav-btn, .side-link { width:100%; justify-content:flex-start; text-align:left; background:transparent; color:#111; border-radius:10px; box-shadow:none; padding:9px 10px; font-weight:500; display:flex; align-items:center; gap:10px; }
-    .new-btn:hover, .nav-btn:hover, .side-link:hover, .session:hover { background:#ececec; }
-    .nav-btn { justify-content:space-between; gap:8px; }
+    .new-btn, .nav-btn { width:100%; justify-content:flex-start; text-align:left; background:transparent; color:#111; border-radius:10px; box-shadow:none; padding:9px 10px; font-weight:500; display:flex; align-items:center; gap:10px; }
+    .new-btn:hover, .nav-btn:hover, .session:hover { background:#ececec; }
+    .nav-btn { justify-content:flex-start; gap:10px; }
     .nav-btn.active, .session.active { background:#ececec; color:#111; }
     .side-icon { width:18px; display:inline-grid; place-items:center; font-size:18px; line-height:1; color:#111; }
-    .sidebar-spacer { flex:1; min-height:18px; }
-    .profile-row { margin:0 -8px; padding:10px 16px; border-top:1px solid #e5e5e5; display:flex; gap:10px; align-items:center; background:#f9f9f9; }
-    .profile-dot { width:24px; height:24px; border-radius:999px; display:grid; place-items:center; background:#475569; color:white; font-size:11px; font-weight:700; }
-    .profile-text { line-height:1.15; font-size:14px; }
     .session-list { display:flex; flex-direction:column; gap:2px; }
     .session { padding:8px 10px; border-radius:10px; cursor:pointer; color:#111; }
     .session-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; line-height:1.35; }
@@ -279,16 +275,13 @@ class MemoryholdApp extends LitElement {
         <aside>
           <div class="brand"><h2>Memoryhold</h2><span class="side-icon">◫</span></div>
           <button class="new-btn" @click=${this.newSession}><span class="side-icon">✎</span><span>New chat</span></button>
-          <button class="side-link"><span class="side-icon">⌕</span><span>Search chats</span></button>
-          <button class="nav-btn ${this.view === "settings" ? "active" : ""}" @click=${() => this.view = "settings"}><span><span class="side-icon">⚙</span> Settings</span></button>
+          <button class="nav-btn ${this.view === "settings" ? "active" : ""}" @click=${() => this.view = "settings"}><span class="side-icon">⚙</span><span>Settings</span></button>
           <section>
             <h3>Recents</h3>
             <div class="session-list">
               ${this.sessions.map((s) => html`<div class="session ${this.active?.slug === s.slug ? "active" : ""}" @click=${() => this.openSession(s)}><div class="session-title">${s.title}</div></div>`)}
             </div>
           </section>
-          <div class="sidebar-spacer"></div>
-          <div class="profile-row"><div class="profile-dot">M</div><div class="profile-text"><div>Memoryhold</div><small>Local</small></div></div>
         </aside>
         <main>
           <header class="topbar">
