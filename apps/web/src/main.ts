@@ -451,6 +451,13 @@ class MemoryholdApp extends LitElement {
     await this.openSession(this.active);
   }
 
+  private handleFileChange(ev: Event) {
+    const input = ev.target as HTMLInputElement;
+    const incoming = Array.from(input.files ?? []);
+    this.files = [...this.files, ...incoming];
+    input.value = "";
+  }
+
   private handleComposerKeydown(ev: KeyboardEvent) {
     if (ev.key !== "Enter" || ev.shiftKey || ev.metaKey || ev.ctrlKey || ev.altKey) return;
     ev.preventDefault();
@@ -580,7 +587,7 @@ class MemoryholdApp extends LitElement {
                 <textarea .value=${this.draft} @keydown=${this.handleComposerKeydown} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
                 <button class="send-btn" title=${this.isStreaming ? "Queue message" : "Send message"}>${this.isStreaming ? "Queue" : "Send"}</button>
                 <div class="composer-extra">
-                  <label class="file-label">＋ Attach<input type="file" multiple @change=${(e: Event) => this.files = Array.from((e.target as HTMLInputElement).files ?? [])} /></label>
+                  <label class="file-label">＋ Attach<input type="file" multiple @change=${this.handleFileChange} /></label>
                   ${this.files.length ? html`<span>${this.files.length} file${this.files.length === 1 ? "" : "s"} selected</span>` : html`<span>No files attached</span>`}
                 </div>
               </div>
