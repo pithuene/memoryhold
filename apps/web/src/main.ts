@@ -79,7 +79,7 @@ class MemoryholdApp extends LitElement {
     .composer-extra { grid-column:1; grid-row:1; display:flex; align-items:center; gap:8px; padding:0; color:#777; font-size:0; }
     .voice-btn { grid-column:3; width:38px; height:38px; border-radius:999px; padding:0; background:transparent; color:#111; font-size:20px; display:grid; place-items:center; }
     .voice-btn:hover { background:#f2f2f2; }
-    .disclaimer { max-width:768px; margin:6px auto 0; text-align:center; color:#777; font-size:12px; }
+
     input[type="file"] { display:none; }
     .file-label { display:grid; place-items:center; width:38px; height:38px; border-radius:999px; border:1px solid #e3e3e3; background:#fff; color:#111; font-size:0; cursor:pointer; }
     .file-label::before { content:"+"; font-size:24px; line-height:1; }
@@ -351,7 +351,6 @@ class MemoryholdApp extends LitElement {
                   ${this.files.length ? html`<span>${this.files.length} file${this.files.length === 1 ? "" : "s"} selected</span>` : html`<span>No files attached</span>`}
                 </div>
               </div>
-              <div class="disclaimer">Memoryhold can make mistakes. Check important info.</div>
             </form>`}
         </main>
       </div>
