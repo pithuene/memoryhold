@@ -82,11 +82,15 @@ class MemoryholdApp extends LitElement {
     .msg.user .message-actions { justify-content:flex-end; padding-right:8px; }
     .action-btn { width:30px; height:30px; padding:0; border-radius:8px; display:grid; place-items:center; background:transparent; color:#666; font-size:15px; }
     .action-btn:hover { background:#ececec; color:#111; }
-    .edit-box { display:grid; gap:8px; min-width:min(560px, 70vw); }
-    .edit-textarea { width:100%; min-height:86px; resize:vertical; border:0; outline:0; background:#fff; border-radius:14px; padding:10px 12px; font:inherit; line-height:1.45; }
+    .msg.user.editing .message-body { max-width:min(70%, 640px); width:min(70%, 640px); }
+    .msg.user.editing .bubble { width:100%; padding:10px 12px; }
+    .edit-box { display:grid; gap:10px; width:100%; }
+    .edit-textarea { width:100%; min-height:24px; max-height:180px; resize:none; border:0; outline:0; background:transparent; border-radius:0; padding:0; font:inherit; line-height:1.45; color:#111; overflow:auto; }
     .edit-actions { display:flex; justify-content:flex-end; gap:8px; }
-    .edit-actions button { padding:7px 12px; border-radius:999px; }
+    .edit-actions button { padding:7px 14px; border-radius:999px; font-size:14px; }
     .edit-actions .cancel { background:#fff; color:#111; border:1px solid #ddd; }
+    .edit-actions .cancel:hover { background:#f6f6f6; }
+    .edit-actions .save { background:#0d0d0d; color:#fff; }
     .msg.error { margin-top:8px; }
     .msg.error .bubble { padding:12px 14px 12px 38px; border-radius:12px; border:1px solid #f1b8b8; background:#fff7f7; color:#8a1f1f; position:relative; box-shadow:none; }
     .msg.error .bubble::before { content:"!"; position:absolute; left:14px; top:14px; width:16px; height:16px; border-radius:999px; display:grid; place-items:center; background:#ef4444; color:white; font-size:11px; font-weight:800; }
@@ -471,15 +475,15 @@ class MemoryholdApp extends LitElement {
                 ${this.entries.map((e: any) => {
                   if (e.type === "message") {
                     const role = e.message.role === "toolResult" ? "tool" : e.message.role;
-                    const classes = `msg ${role} ${e.message.stopReason === "error" ? "error" : ""}`;
+                    const isEditing = this.editingEntryId === e.id;
+                    const classes = `msg ${role} ${e.message.stopReason === "error" ? "error" : ""} ${isEditing ? "editing" : ""}`;
                     const label = `${role}${e.message.stopReason === "error" ? " · error" : ""}`;
                     const avatar = role === "user" ? "U" : role === "tool" ? "T" : "M";
-                    const isEditing = this.editingEntryId === e.id;
                     return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${isEditing ? html`
                       <div class="edit-box">
                         ${this.renderAttachments(this.messageAttachments(e.message))}
                         <textarea class="edit-textarea" .value=${this.editingDraft} @input=${(ev: InputEvent) => this.editingDraft = (ev.target as HTMLTextAreaElement).value}></textarea>
-                        <div class="edit-actions"><button class="cancel" @click=${() => this.editingEntryId = ""}>Cancel</button><button @click=${() => this.saveEdit(e)}>Send</button></div>
+                        <div class="edit-actions"><button class="cancel" @click=${() => this.editingEntryId = ""}>Cancel</button><button class="save" @click=${() => this.saveEdit(e)}>Send</button></div>
                       </div>
                     ` : html`${this.renderAttachments(this.messageAttachments(e.message))}${this.renderMessage(e.message)}`}</div>${role === "user" && !isEditing ? html`<div class="message-actions"><button class="action-btn" title="Copy" @click=${() => this.copyMessage(e.message)}>⧉</button><button class="action-btn" title="Edit" @click=${() => this.startEdit(e)}>✎</button></div>` : ""}</div></div>`;
                   }
