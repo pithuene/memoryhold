@@ -157,6 +157,13 @@ export class SessionRepo {
     await this.saveMetadata(metadata);
   }
 
+  async readAttachment(slug: string, relativePath: string): Promise<Buffer> {
+    if (!relativePath.startsWith("attachments/") || relativePath.includes("..")) {
+      throw new Error("Invalid attachment path");
+    }
+    return readFile(join(this.sessionDir(slug), relativePath));
+  }
+
   async saveAttachment(slug: string, file: File): Promise<{ id: string; filename: string; mimeType: string; relativePath: string }> {
     const id = randomUUID();
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_") || `attachment${extname(file.name)}`;

@@ -194,7 +194,7 @@ class MemoryholdApp extends LitElement {
   }
 
   private renderMessage(message: any) {
-    const body = this.renderContent(message.content);
+    const body = this.renderContent(message.content).replace(/\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>[\s\S]*?<\/MEMORYHOLD_ATTACHMENT_CONTEXT>/g, "\n\nAttachments included.");
     const error = message.errorMessage ? `Error: ${message.errorMessage}` : "";
     return [body, error].filter(Boolean).join("\n\n");
   }

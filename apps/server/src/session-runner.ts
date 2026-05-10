@@ -1,5 +1,6 @@
 import { Agent, type AgentEvent, type AgentMessage, type ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { getModel, streamSimple } from "@earendil-works/pi-ai";
+import { PDFParse } from "pdf-parse";
 import type { MessageEntry, ServerEvent, UploadedAttachmentRef } from "@memoryhold/shared";
 import { AuthStore } from "./auth-store.js";
 import { EventHub } from "./events.js";
@@ -12,11 +13,14 @@ interface RuntimeState {
   isStreaming: boolean;
 }
 
-function userMessage(content: string, attachments: UploadedAttachmentRef[]): AgentMessage {
-  const suffix = attachments.length
-    ? `\n\nAttachments saved locally:\n${attachments.map((a) => `- ${a.filename} (${a.relativePath})`).join("\n")}`
-    : "";
+function userMessage(content: string, attachmentContext: string): AgentMessage {
+  const suffix = attachmentContext ? `\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>\n${attachmentContext}\n</MEMORYHOLD_ATTACHMENT_CONTEXT>` : "";
   return { role: "user", content: [{ type: "text", text: content + suffix }], timestamp: Date.now() } as AgentMessage;
+}
+
+function truncateText(text: string, maxChars = 40_000): string {
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\n{4,}/g, "\n\n\n").trim();
+  return normalized.length > maxChars ? `${normalized.slice(0, maxChars)}\n\n[Attachment text truncated at ${maxChars} characters.]` : normalized;
 }
 
 export class SessionRunner {
@@ -46,7 +50,8 @@ export class SessionRunner {
       await this.publishSessionUpdate(slug, { type: "entry_appended", entry: thinkingEntry });
     }
 
-    const message = userMessage(content, attachments);
+    const attachmentContext = await this.buildAttachmentContext(slug, attachments);
+    const message = userMessage(content, attachmentContext);
     if (state.agent.state.isStreaming) {
       state.agent.steer(message);
       return { queued: true };
@@ -54,6 +59,33 @@ export class SessionRunner {
 
     void this.runPrompt(slug, state, message);
     return { queued: false };
+  }
+
+  private async buildAttachmentContext(slug: string, attachments: UploadedAttachmentRef[]): Promise<string> {
+    if (!attachments.length) return "";
+    const sections: string[] = ["The user attached file(s). Their extracted contents are included below. Use them to answer questions about the files."];
+    for (const attachment of attachments) {
+      const header = `Attachment: ${attachment.filename} (${attachment.mimeType || "unknown type"}, ${attachment.relativePath})`;
+      try {
+        const bytes = await this.repo.readAttachment(slug, attachment.relativePath);
+        const lowerName = attachment.filename.toLowerCase();
+        const mimeType = attachment.mimeType ?? "";
+        if (mimeType === "application/pdf" || lowerName.endsWith(".pdf")) {
+          const parser = new PDFParse({ data: bytes });
+          const result = await parser.getText();
+          await parser.destroy();
+          sections.push(`${header}\n\n${truncateText(result.text || "[No extractable PDF text found.]")}`);
+        } else if (mimeType.startsWith("text/") || /\.(md|txt|csv|json|xml|html|log|ts|tsx|js|jsx|py|rs|go|java|c|cpp|h)$/i.test(lowerName)) {
+          sections.push(`${header}\n\n${truncateText(bytes.toString("utf8"))}`);
+        } else {
+          sections.push(`${header}\n\n[Unsupported attachment type for text extraction.]`);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        sections.push(`${header}\n\n[Could not read/extract attachment: ${message}]`);
+      }
+    }
+    return sections.join("\n\n---\n\n");
   }
 
   private async getOrCreateState(slug: string, options: { model?: { provider: string; modelId: string }; thinkingLevel?: string }): Promise<RuntimeState> {
