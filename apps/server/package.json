@@ -1,0 +1,20 @@
+{
+  "name": "@memoryhold/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.1",
+    "@memoryhold/shared": "workspace:*",
+    "hono": "^4.7.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4"
+  }
+}

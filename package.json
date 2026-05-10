@@ -1,0 +1,16 @@
+{
+  "name": "memoryhold",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "check": "pnpm -r check"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
+  }
+}

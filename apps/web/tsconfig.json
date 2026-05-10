@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "useDefineForClassFields": false,
+    "experimentalDecorators": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}
