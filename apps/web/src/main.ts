@@ -1,6 +1,13 @@
 import { LitElement, css, html } from "lit";
+import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { customElement, state } from "lit/decorators.js";
 import type { SessionMetadata, SessionTreeEntry } from "@memoryhold/shared";
+import { marked } from "marked";
+import markedKatex from "marked-katex-extension";
+import DOMPurify from "dompurify";
+import "katex/dist/katex.min.css";
+
+marked.use(markedKatex({ throwOnError: false, displayMode: false }));
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
 
@@ -56,7 +63,7 @@ class MemoryholdApp extends LitElement {
     .thread { max-width:920px; margin:0 auto; }
     .empty { max-width:680px; margin:15vh auto 0; text-align:center; color:#94a3b8; }
     .empty h1 { color:white; margin:0 0 8px; font-size:34px; letter-spacing:-.04em; }
-    .msg { display:grid; grid-template-columns:32px minmax(0, 1fr); gap:12px; margin:0 0 24px; white-space:pre-wrap; line-height:1.65; font-size:15px; }
+    .msg { display:grid; grid-template-columns:32px minmax(0, 1fr); gap:12px; margin:0 0 24px; line-height:1.65; font-size:15px; }
     .msg.user { grid-template-columns:minmax(0, 1fr) 32px; }
     .avatar { width:32px; height:32px; border-radius:10px; display:grid; place-items:center; color:#dbeafe; font-size:12px; font-weight:850; background:#1e293b; border:1px solid rgba(148,163,184,.18); }
     .msg.user .avatar { grid-column:2; background:#1d4ed8; color:white; }
@@ -80,6 +87,21 @@ class MemoryholdApp extends LitElement {
     .file-label { display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(148,163,184,.16); border-radius:10px; padding:7px 10px; background:#111827; color:#cbd5e1; font-weight:700; cursor:pointer; }
     .attachment-note { margin-top:10px; padding-top:10px; border-top:1px solid rgba(148,163,184,.14); color:#94a3b8; font-size:12px; line-height:1.4; }
     .attachment-note strong { color:#cbd5e1; }
+    .markdown { white-space:normal; overflow-wrap:anywhere; }
+    .markdown > :first-child { margin-top:0; }
+    .markdown > :last-child { margin-bottom:0; }
+    .markdown p, .markdown ul, .markdown ol, .markdown blockquote, .markdown pre, .markdown table { margin:0 0 12px; }
+    .markdown ul, .markdown ol { padding-left:22px; }
+    .markdown a { color:#93c5fd; }
+    .markdown code { padding:2px 5px; border-radius:6px; background:rgba(2,6,23,.65); color:#dbeafe; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:.92em; }
+    .markdown pre { overflow:auto; padding:13px 14px; border-radius:12px; border:1px solid rgba(148,163,184,.16); background:#020617; }
+    .markdown pre code { padding:0; background:transparent; color:#e5e7eb; }
+    .markdown blockquote { padding-left:12px; border-left:3px solid rgba(147,197,253,.45); color:#cbd5e1; }
+    .markdown table { border-collapse:collapse; display:block; overflow:auto; }
+    .markdown th, .markdown td { border:1px solid rgba(148,163,184,.18); padding:6px 9px; }
+    .markdown .katex-display { overflow-x:auto; overflow-y:hidden; padding:6px 0; }
+    .msg.user .markdown code { background:rgba(15,23,42,.22); color:white; }
+    .msg.user .markdown pre { background:rgba(2,6,23,.25); border-color:rgba(255,255,255,.18); }
     .error { margin:12px 28px 0; padding:12px 14px; border:1px solid rgba(248,113,113,.35); border-radius:12px; background:rgba(127,29,29,.35); color:#fecaca; white-space:pre-wrap; }
     .settings { padding:34px 30px; overflow:auto; background:linear-gradient(180deg,#0a0f1d,#080c17); }
     .settings-inner { max-width:820px; margin:0 auto; display:grid; gap:18px; }
@@ -198,7 +220,12 @@ class MemoryholdApp extends LitElement {
   private renderMessage(message: any) {
     const body = this.renderContent(message.content).replace(/\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>[\s\S]*?<\/MEMORYHOLD_ATTACHMENT_CONTEXT>/g, "");
     const error = message.errorMessage ? `Error: ${message.errorMessage}` : "";
-    return [body, error].filter(Boolean).join("\n\n");
+    return this.renderMarkdown([body, error].filter(Boolean).join("\n\n"));
+  }
+
+  private renderMarkdown(markdown: string) {
+    const rawHtml = marked.parse(markdown, { async: false }) as string;
+    return html`<div class="markdown">${unsafeHTML(DOMPurify.sanitize(rawHtml))}</div>`;
   }
 
   private renderContent(content: unknown) {
@@ -315,7 +342,7 @@ class MemoryholdApp extends LitElement {
                   if (e.type === "model_change" || e.type === "thinking_level_change") return "";
                   return "";
                 })}
-                ${this.streamingContent ? html`<div class="msg assistant"><div class="avatar">M</div><div class="message-body"><div class="role">assistant · streaming</div><div class="bubble">${this.streamingContent}</div></div></div>` : ""}
+                ${this.streamingContent ? html`<div class="msg assistant"><div class="avatar">M</div><div class="message-body"><div class="role">assistant · streaming</div><div class="bubble">${this.renderMarkdown(this.streamingContent)}</div></div></div>` : ""}
               </div>` : html`<div class="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>`}
             </div>
             <form @submit=${this.send}>

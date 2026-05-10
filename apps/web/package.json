@@ -14,10 +14,15 @@
     "@earendil-works/pi-web-ui": "0.74.0",
     "@memoryhold/shared": "workspace:*",
     "@vitejs/plugin-basic-ssl": "^1.2.0",
+    "dompurify": "^3.4.2",
+    "katex": "^0.16.45",
     "lit": "^3.3.0",
+    "marked": "^18.0.3",
+    "marked-katex-extension": "^5.1.8",
     "vite": "^6.3.4"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.2.0",
     "playwright": "^1.59.1"
   }
 }
