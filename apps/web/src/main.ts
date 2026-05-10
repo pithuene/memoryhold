@@ -106,12 +106,12 @@ class MemoryholdApp extends LitElement {
     .file-label { display:grid; place-items:center; width:38px; height:38px; border-radius:999px; border:1px solid #e3e3e3; background:#fff; color:#111; font-size:0; cursor:pointer; }
     .file-label::before { content:"+"; font-size:24px; line-height:1; }
     .composer-extra span { display:none; }
-    .selected-files { max-width:768px; margin:0 auto -1px; display:flex; flex-wrap:nowrap; gap:8px; padding:10px 12px 0; border:1px solid #d9d9d9; border-bottom:0; border-radius:24px 24px 0 0; background:#fff; box-shadow:0 8px 28px rgba(0,0,0,.08); overflow:hidden; }
-    .selected-file { position:relative; display:grid; grid-template-columns:38px minmax(0,1fr); gap:9px; align-items:center; min-width:170px; max-width:270px; padding:7px 34px 7px 8px; border:1px solid #dedede; border-radius:12px; background:#fff; color:#111; }
+    .selected-files { max-width:768px; margin:0 auto -1px; display:flex; flex-wrap:wrap; align-items:flex-start; gap:10px; padding:12px 14px 8px; border:1px solid #d9d9d9; border-bottom:0; border-radius:24px 24px 0 0; background:#fff; box-shadow:0 8px 28px rgba(0,0,0,.08); overflow:visible; }
+    .selected-file { position:relative; flex:0 1 258px; display:grid; grid-template-columns:38px minmax(0,1fr); gap:9px; align-items:center; min-width:180px; max-width:258px; padding:7px 34px 7px 8px; border:1px solid #dedede; border-radius:12px; background:#fff; color:#111; }
     .selected-file-thumb, .attachment-icon { width:38px; height:38px; border-radius:8px; display:grid; place-items:center; object-fit:cover; background:#f0f0f0; font-size:11px; font-weight:700; color:#555; overflow:hidden; }
     .selected-file-name, .attachment-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; line-height:1.2; font-weight:600; }
     .selected-file-meta, .attachment-meta { color:#777; font-size:12px; line-height:1.2; margin-top:2px; }
-    .remove-file { position:absolute; top:-7px; right:-7px; width:22px; height:22px; padding:0; border-radius:999px; display:grid; place-items:center; background:#111; color:#fff; font-size:14px; line-height:1; }
+    .remove-file { position:absolute; top:-8px; right:-8px; z-index:2; width:22px; height:22px; padding:0; border-radius:999px; display:grid; place-items:center; background:#111; color:#fff; font-size:14px; line-height:1; }
     .remove-file:hover { background:#333; }
     .composer.with-files { border-top-left-radius:0; border-top-right-radius:0; }
     .attachment-list { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 8px; }
