@@ -10,6 +10,7 @@ import katexCss from "katex/dist/katex.min.css?inline";
 marked.use(markedKatex({ throwOnError: false, displayMode: false, nonStandard: true }));
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
+const SETTINGS_KEY = "memoryhold.settings";
 
 @customElement("memoryhold-app")
 class MemoryholdApp extends LitElement {
@@ -186,9 +187,46 @@ class MemoryholdApp extends LitElement {
 
   private async loadProviders() {
     this.providers = await fetch(`${API}/api/providers`).then((r) => r.json());
-    const preferredProvider = this.providers.find((p) => p.id === "openai-codex") ?? this.providers.find((p) => p.id === "openai") ?? this.providers[0];
+    const saved = this.loadSavedSettings();
+    const savedProvider = saved?.provider ? this.providers.find((p) => p.id === saved.provider) : undefined;
+    const preferredProvider = savedProvider ?? this.providers.find((p) => p.id === "openai-codex") ?? this.providers.find((p) => p.id === "openai") ?? this.providers[0];
     this.selectedProvider = preferredProvider?.id ?? "";
-    this.selectedModel = preferredProvider?.models[0]?.id ?? "";
+    this.selectedModel = preferredProvider?.models.find((m) => m.id === saved?.modelId)?.id ?? preferredProvider?.models[0]?.id ?? "";
+    this.thinkingLevel = saved?.thinkingLevel ?? this.thinkingLevel;
+    this.saveSettings();
+  }
+
+  private loadSavedSettings(): { provider?: string; modelId?: string; thinkingLevel?: string } | undefined {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      return raw ? JSON.parse(raw) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private saveSettings() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      provider: this.selectedProvider,
+      modelId: this.selectedModel,
+      thinkingLevel: this.thinkingLevel,
+    }));
+  }
+
+  private selectProvider(provider: string) {
+    this.selectedProvider = provider;
+    this.selectedModel = this.providers.find((p) => p.id === this.selectedProvider)?.models[0]?.id ?? "";
+    this.saveSettings();
+  }
+
+  private selectModel(modelId: string) {
+    this.selectedModel = modelId;
+    this.saveSettings();
+  }
+
+  private selectThinkingLevel(thinkingLevel: string) {
+    this.thinkingLevel = thinkingLevel;
+    this.saveSettings();
   }
 
   private async newSession() {
@@ -367,16 +405,13 @@ class MemoryholdApp extends LitElement {
                   <h2>Model defaults</h2>
                   <p>These settings are sent with each message and recorded in the conversation timeline.</p>
                   <div class="settings-grid">
-                    <select .value=${this.selectedProvider} @change=${(e: Event) => {
-                      this.selectedProvider = (e.target as HTMLSelectElement).value;
-                      this.selectedModel = this.providers.find((p) => p.id === this.selectedProvider)?.models[0]?.id ?? "";
-                    }}>
+                    <select .value=${this.selectedProvider} @change=${(e: Event) => this.selectProvider((e.target as HTMLSelectElement).value)}>
                       ${this.providers.map((p) => html`<option value=${p.id} ?selected=${p.id === this.selectedProvider}>${p.id}</option>`)}
                     </select>
-                    <select .value=${this.selectedModel} @change=${(e: Event) => this.selectedModel = (e.target as HTMLSelectElement).value}>
+                    <select .value=${this.selectedModel} @change=${(e: Event) => this.selectModel((e.target as HTMLSelectElement).value)}>
                       ${this.providers.find((p) => p.id === this.selectedProvider)?.models.map((m) => html`<option value=${m.id} ?selected=${m.id === this.selectedModel}>${m.name || m.id}</option>`) ?? []}
                     </select>
-                    <select .value=${this.thinkingLevel} @change=${(e: Event) => this.thinkingLevel = (e.target as HTMLSelectElement).value}>
+                    <select .value=${this.thinkingLevel} @change=${(e: Event) => this.selectThinkingLevel((e.target as HTMLSelectElement).value)}>
                       ${["off", "minimal", "low", "medium", "high"].map((level) => html`<option value=${level} ?selected=${level === this.thinkingLevel}>thinking: ${level}</option>`) }
                     </select>
                   </div>
