@@ -1,0 +1,146 @@
+import { app, BrowserWindow, dialog, shell } from "electron";
+import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+
+interface DesktopConfig {
+  conversationsDir?: string;
+}
+
+let serverProcess: ChildProcess | undefined;
+let webProcess: ChildProcess | undefined;
+let mainWindow: BrowserWindow | undefined;
+
+const isDev = !app.isPackaged;
+const serverPort = Number(process.env.MEMORYHOLD_SERVER_PORT ?? 8787);
+const webUrl = process.env.MEMORYHOLD_WEB_URL ?? `http://localhost:5173`;
+
+function configPath() {
+  return join(app.getPath("userData"), "desktop-config.json");
+}
+
+function readConfig(): DesktopConfig {
+  try {
+    return JSON.parse(readFileSync(configPath(), "utf8")) as DesktopConfig;
+  } catch {
+    return {};
+  }
+}
+
+function writeConfig(config: DesktopConfig) {
+  mkdirSync(dirname(configPath()), { recursive: true });
+  writeFileSync(configPath(), JSON.stringify(config, null, 2));
+}
+
+async function chooseConversationsDir(): Promise<string | undefined> {
+  const result = await dialog.showOpenDialog({
+    title: "Choose Memoryhold conversations folder",
+    message: "Choose where Memoryhold should store local conversations and attachments.",
+    properties: ["openDirectory", "createDirectory"],
+    buttonLabel: "Use this folder",
+  });
+  return result.canceled ? undefined : result.filePaths[0];
+}
+
+async function getConversationsDir(): Promise<string> {
+  const existing = process.env.CONVERSATIONS_DIR ?? readConfig().conversationsDir;
+  if (existing) return existing;
+
+  const selected = await chooseConversationsDir();
+  if (!selected) {
+    app.quit();
+    throw new Error("No conversations directory selected");
+  }
+  writeConfig({ conversationsDir: selected });
+  return selected;
+}
+
+function projectRoot() {
+  return resolve(app.getAppPath(), "../..");
+}
+
+function spawnPnpm(args: string[], env = process.env) {
+  return spawn("pnpm", args, {
+    cwd: projectRoot(),
+    env: { ...process.env, ...env },
+    stdio: "inherit",
+  });
+}
+
+function startWebDev() {
+  if (!isDev || process.env.MEMORYHOLD_WEB_URL) return;
+  webProcess = spawnPnpm(["--filter", "@memoryhold/web", "dev"]);
+}
+
+function startServer(conversationsDir: string) {
+  const env = { ...process.env, CONVERSATIONS_DIR: conversationsDir, PORT: String(serverPort) };
+  if (isDev) {
+    serverProcess = spawnPnpm(["--filter", "@memoryhold/server", "dev"], env);
+  } else {
+    serverProcess = spawn(process.execPath, [join(process.resourcesPath, "server", "index.js")], {
+      env,
+      stdio: "inherit",
+    });
+  }
+}
+
+async function waitForUrl(url: string, label: string) {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) return;
+    } catch {
+      // keep waiting
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`${label} did not start in time`);
+}
+
+async function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1440,
+    height: 1000,
+    minWidth: 960,
+    minHeight: 700,
+    title: "Memoryhold",
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    void shell.openExternal(url);
+    return { action: "deny" };
+  });
+
+  if (isDev) {
+    await mainWindow.loadURL(webUrl);
+  } else {
+    await mainWindow.loadFile(join(app.getAppPath(), "../web/index.html"));
+  }
+}
+
+app.whenReady().then(async () => {
+  const conversationsDir = await getConversationsDir();
+  startServer(conversationsDir);
+  startWebDev();
+  await waitForUrl(`http://localhost:${serverPort}/api/health`, "Memoryhold server");
+  if (isDev) await waitForUrl(webUrl, "Memoryhold web app");
+  await createWindow();
+});
+
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) void createWindow();
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
+
+app.on("before-quit", () => {
+  serverProcess?.kill();
+  webProcess?.kill();
+});

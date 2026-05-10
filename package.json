@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm -r --parallel dev",
+    "dev": "pnpm -r --parallel --filter '!@memoryhold/electron' dev",
+    "electron:dev": "pnpm --filter @memoryhold/electron dev",
     "build": "pnpm -r build",
     "check": "pnpm -r check",
     "screenshot": "node scripts/screenshot.mjs",
