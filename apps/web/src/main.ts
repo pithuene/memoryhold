@@ -22,6 +22,7 @@ class MemoryholdApp extends LitElement {
   @state() private loginId = "";
   @state() private authUrl = "";
   @state() private callbackInput = "";
+  @state() private view: "chat" | "settings" = "chat";
   private eventSource?: EventSource;
 
   static styles = css`
@@ -39,6 +40,8 @@ class MemoryholdApp extends LitElement {
     button.secondary { background:#1e293b; color:#cbd5e1; }
     button.success { background:#075f46; color:#d1fae5; }
     .new-btn { width:100%; }
+    .nav-btn { width:100%; background:#111827; color:#cbd5e1; display:flex; justify-content:space-between; align-items:center; }
+    .nav-btn.active { background:#12234a; color:white; border:1px solid #2f5fb7; }
     .session-list { display:flex; flex-direction:column; gap:6px; }
     .session { padding:11px 12px; border:1px solid transparent; border-radius:13px; cursor:pointer; color:#cbd5e1; }
     .session:hover { background:#111827; }
@@ -76,6 +79,19 @@ class MemoryholdApp extends LitElement {
     input[type="file"] { display:none; }
     .file-label { display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(148,163,184,.16); border-radius:10px; padding:7px 10px; background:#111827; color:#cbd5e1; font-weight:700; cursor:pointer; }
     .error { margin:12px 28px 0; padding:12px 14px; border:1px solid rgba(248,113,113,.35); border-radius:12px; background:rgba(127,29,29,.35); color:#fecaca; white-space:pre-wrap; }
+    .settings { padding:34px 30px; overflow:auto; background:linear-gradient(180deg,#0a0f1d,#080c17); }
+    .settings-inner { max-width:820px; margin:0 auto; display:grid; gap:18px; }
+    .settings-hero { margin-bottom:6px; }
+    .settings-hero h1 { margin:0 0 6px; font-size:30px; letter-spacing:-.04em; }
+    .settings-card { padding:18px; border:1px solid rgba(148,163,184,.13); border-radius:18px; background:#0f172a; box-shadow:0 18px 50px rgba(0,0,0,.16); }
+    .settings-card h2 { font-size:16px; margin:0 0 6px; }
+    .settings-card p { margin:0 0 14px; color:#94a3b8; font-size:14px; line-height:1.5; }
+    .settings-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .account-list { display:grid; gap:10px; }
+    .account-row { display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; padding:12px; border:1px solid rgba(148,163,184,.12); border-radius:14px; background:#0b1020; }
+    .account-name { font-weight:750; }
+    .account-status { color:#94a3b8; font-size:12px; margin-top:2px; }
+    @media (max-width: 760px) { .settings-grid { grid-template-columns:1fr; } }
     select, .oauth-textarea { width:100%; margin:4px 0 8px; background:#020617; color:#e5e7eb; border:1px solid rgba(148,163,184,.22); border-radius:10px; padding:9px; }
     .oauth-buttons { display:grid; gap:8px; }
     .oauth-buttons button { overflow:hidden; text-wrap:balance; line-height:1.15; min-height:42px; }
@@ -153,6 +169,7 @@ class MemoryholdApp extends LitElement {
     this.streamingContent = "";
     this.isStreaming = false;
     this.active = session;
+    this.view = "chat";
     const data = await fetch(`${API}/api/sessions/${session.slug}`).then((r) => r.json());
     this.entries = data.entries;
     const es = new EventSource(`${API}/api/sessions/${session.slug}/events`);
@@ -233,32 +250,7 @@ class MemoryholdApp extends LitElement {
         <aside>
           <div class="brand"><h2>Memoryhold</h2></div>
           <button class="new-btn" @click=${this.newSession}>＋ New conversation</button>
-          <section class="panel">
-            <h3>Accounts</h3>
-            <div class="oauth-buttons">
-              ${this.oauthProviders.map((p) => html`<button class=${p.authenticated ? "success" : "secondary"} @click=${() => this.startOAuth(p.id)}><span class="meta-row"><span>${p.authenticated ? p.name : `Login ${p.name}`}</span>${p.authenticated ? html`<span class="dot"></span>` : ""}</span></button>`)}
-            </div>
-            ${this.loginId ? html`
-              <p><small>Browser opened. If callback does not complete, paste redirect URL/code:</small></p>
-              <textarea class="oauth-textarea" .value=${this.callbackInput} @input=${(e: InputEvent) => this.callbackInput = (e.target as HTMLTextAreaElement).value}></textarea>
-              <button @click=${this.completeOAuth}>Complete login</button>
-            ` : ""}
-          </section>
-          <section class="panel">
-          <h3>Model</h3>
-          <select .value=${this.selectedProvider} @change=${(e: Event) => {
-            this.selectedProvider = (e.target as HTMLSelectElement).value;
-            this.selectedModel = this.providers.find((p) => p.id === this.selectedProvider)?.models[0]?.id ?? "";
-          }}>
-            ${this.providers.map((p) => html`<option value=${p.id} ?selected=${p.id === this.selectedProvider}>${p.id}</option>`)}
-          </select>
-          <select .value=${this.selectedModel} @change=${(e: Event) => this.selectedModel = (e.target as HTMLSelectElement).value}>
-            ${this.providers.find((p) => p.id === this.selectedProvider)?.models.map((m) => html`<option value=${m.id} ?selected=${m.id === this.selectedModel}>${m.name || m.id}</option>`) ?? []}
-          </select>
-          <select .value=${this.thinkingLevel} @change=${(e: Event) => this.thinkingLevel = (e.target as HTMLSelectElement).value}>
-            ${["off", "minimal", "low", "medium", "high"].map((level) => html`<option value=${level} ?selected=${level === this.thinkingLevel}>thinking: ${level}</option>`) }
-          </select>
-          </section>
+          <button class="nav-btn ${this.view === "settings" ? "active" : ""}" @click=${() => this.view = "settings"}><span>Settings</span><small>Accounts & model</small></button>
           <section>
             <h3>Conversations</h3>
             <div class="session-list">
@@ -268,36 +260,72 @@ class MemoryholdApp extends LitElement {
         </aside>
         <main>
           <header class="topbar">
-            <div class="chat-title"><strong>${this.active?.title ?? "No conversation selected"}</strong><small>${this.selectedProvider}${this.selectedModel ? ` / ${this.selectedModel}` : ""}</small></div>
+            <div class="chat-title"><strong>${this.view === "settings" ? "Settings" : this.active?.title ?? "No conversation selected"}</strong><small>${this.view === "settings" ? "Accounts, providers, and defaults" : `${this.selectedProvider}${this.selectedModel ? ` / ${this.selectedModel}` : ""}`}</small></div>
             <div class="status-pill">${this.isStreaming ? "Streaming" : "Ready"}</div>
           </header>
           ${this.errorMessage ? html`<div class="error">${this.errorMessage}</div>` : ""}
-          <div class="messages">
-            ${this.active ? html`<div class="thread">
-              ${this.entries.map((e: any) => {
-                if (e.type === "message") {
-                  const role = e.message.role === "toolResult" ? "tool" : e.message.role;
-                  const classes = `msg ${role} ${e.message.stopReason === "error" ? "error" : ""}`;
-                  const label = `${role}${e.message.stopReason === "error" ? " · error" : ""}`;
-                  const avatar = role === "user" ? "U" : role === "tool" ? "T" : "M";
-                  return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${this.renderMessage(e.message)}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div></div></div>`;
-                }
-                if (e.type === "model_change" || e.type === "thinking_level_change") return "";
-                return "";
-              })}
-              ${this.streamingContent ? html`<div class="msg assistant"><div class="avatar">M</div><div class="message-body"><div class="role">assistant · streaming</div><div class="bubble">${this.streamingContent}</div></div></div>` : ""}
-            </div>` : html`<div class="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>`}
-          </div>
-          <form @submit=${this.send}>
-            <div class="composer">
-              <textarea .value=${this.draft} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
-              <button class="send-btn">${this.isStreaming ? "Queue" : "Send"}</button>
-              <div class="composer-extra">
-                <label class="file-label">＋ Attach<input type="file" multiple @change=${(e: Event) => this.files = Array.from((e.target as HTMLInputElement).files ?? [])} /></label>
-                ${this.files.length ? html`<span>${this.files.length} file${this.files.length === 1 ? "" : "s"} selected</span>` : html`<span>No files attached</span>`}
+          ${this.view === "settings" ? html`
+            <div class="settings">
+              <div class="settings-inner">
+                <div class="settings-hero"><h1>Settings</h1><p class="muted">Connect provider accounts and choose the default model for new messages.</p></div>
+                <section class="settings-card">
+                  <h2>Accounts</h2>
+                  <p>Credentials are stored on the backend in your local conversations directory.</p>
+                  <div class="account-list">
+                    ${this.oauthProviders.map((p) => html`<div class="account-row"><div><div class="account-name">${p.name}</div><div class="account-status">${p.authenticated ? "Connected" : "Not connected"}</div></div><button class=${p.authenticated ? "success" : "secondary"} @click=${() => this.startOAuth(p.id)}>${p.authenticated ? "Reconnect" : "Connect"}</button></div>`)}
+                  </div>
+                  ${this.loginId ? html`
+                    <p style="margin-top:14px"><small>Browser opened. If callback does not complete, paste redirect URL/code:</small></p>
+                    <textarea class="oauth-textarea" .value=${this.callbackInput} @input=${(e: InputEvent) => this.callbackInput = (e.target as HTMLTextAreaElement).value}></textarea>
+                    <button @click=${this.completeOAuth}>Complete login</button>
+                  ` : ""}
+                </section>
+                <section class="settings-card">
+                  <h2>Model defaults</h2>
+                  <p>These settings are sent with each message and recorded in the conversation timeline.</p>
+                  <div class="settings-grid">
+                    <select .value=${this.selectedProvider} @change=${(e: Event) => {
+                      this.selectedProvider = (e.target as HTMLSelectElement).value;
+                      this.selectedModel = this.providers.find((p) => p.id === this.selectedProvider)?.models[0]?.id ?? "";
+                    }}>
+                      ${this.providers.map((p) => html`<option value=${p.id} ?selected=${p.id === this.selectedProvider}>${p.id}</option>`)}
+                    </select>
+                    <select .value=${this.selectedModel} @change=${(e: Event) => this.selectedModel = (e.target as HTMLSelectElement).value}>
+                      ${this.providers.find((p) => p.id === this.selectedProvider)?.models.map((m) => html`<option value=${m.id} ?selected=${m.id === this.selectedModel}>${m.name || m.id}</option>`) ?? []}
+                    </select>
+                    <select .value=${this.thinkingLevel} @change=${(e: Event) => this.thinkingLevel = (e.target as HTMLSelectElement).value}>
+                      ${["off", "minimal", "low", "medium", "high"].map((level) => html`<option value=${level} ?selected=${level === this.thinkingLevel}>thinking: ${level}</option>`) }
+                    </select>
+                  </div>
+                </section>
               </div>
+            </div>` : html`
+            <div class="messages">
+              ${this.active ? html`<div class="thread">
+                ${this.entries.map((e: any) => {
+                  if (e.type === "message") {
+                    const role = e.message.role === "toolResult" ? "tool" : e.message.role;
+                    const classes = `msg ${role} ${e.message.stopReason === "error" ? "error" : ""}`;
+                    const label = `${role}${e.message.stopReason === "error" ? " · error" : ""}`;
+                    const avatar = role === "user" ? "U" : role === "tool" ? "T" : "M";
+                    return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${this.renderMessage(e.message)}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div></div></div>`;
+                  }
+                  if (e.type === "model_change" || e.type === "thinking_level_change") return "";
+                  return "";
+                })}
+                ${this.streamingContent ? html`<div class="msg assistant"><div class="avatar">M</div><div class="message-body"><div class="role">assistant · streaming</div><div class="bubble">${this.streamingContent}</div></div></div>` : ""}
+              </div>` : html`<div class="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>`}
             </div>
-          </form>
+            <form @submit=${this.send}>
+              <div class="composer">
+                <textarea .value=${this.draft} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
+                <button class="send-btn">${this.isStreaming ? "Queue" : "Send"}</button>
+                <div class="composer-extra">
+                  <label class="file-label">＋ Attach<input type="file" multiple @change=${(e: Event) => this.files = Array.from((e.target as HTMLInputElement).files ?? [])} /></label>
+                  ${this.files.length ? html`<span>${this.files.length} file${this.files.length === 1 ? "" : "s"} selected</span>` : html`<span>No files attached</span>`}
+                </div>
+              </div>
+            </form>`}
         </main>
       </div>
     `;
