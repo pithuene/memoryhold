@@ -104,13 +104,14 @@ function startServer(conversationsDir: string) {
   if (isDev) {
     serverProcess = spawnPnpm(["--filter", "@memoryhold/server", "dev"], env);
   } else {
-    serverProcess = spawn(process.execPath, [join(process.resourcesPath, "app", "apps", "server", "dist", "index.js")], {
+    const appBundlePath = join(process.resourcesPath, "app.asar");
+    serverProcess = spawn(process.execPath, [join(appBundlePath, "apps", "server", "dist", "index.js")], {
       env: {
         ...env,
         ELECTRON_RUN_AS_NODE: "1",
-        MEMORYHOLD_WEB_DIST: join(process.resourcesPath, "app", "apps", "web", "dist"),
+        MEMORYHOLD_WEB_DIST: join(appBundlePath, "apps", "web", "dist"),
       },
-      cwd: join(process.resourcesPath, "app"),
+      cwd: process.resourcesPath,
       stdio: "inherit",
     });
   }
