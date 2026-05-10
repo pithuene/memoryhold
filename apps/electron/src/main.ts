@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell } from "electron";
+import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -42,6 +42,17 @@ async function chooseConversationsDir(): Promise<string | undefined> {
   return result.canceled ? undefined : result.filePaths[0];
 }
 
+async function pickAndSwitchConversationsDir() {
+  const selected = await chooseConversationsDir();
+  if (!selected) return;
+  writeConfig({ conversationsDir: selected });
+  await restartServer(selected);
+  if (mainWindow) {
+    if (isDev) await mainWindow.loadURL(webUrl);
+    else await mainWindow.loadFile(join(app.getAppPath(), "../web/index.html"));
+  }
+}
+
 async function getConversationsDir(): Promise<string> {
   const existing = process.env.CONVERSATIONS_DIR ?? readConfig().conversationsDir;
   if (existing) return existing;
@@ -72,6 +83,13 @@ function startWebDev() {
   webProcess = spawnPnpm(["--filter", "@memoryhold/web", "dev"]);
 }
 
+async function restartServer(conversationsDir: string) {
+  serverProcess?.kill();
+  serverProcess = undefined;
+  startServer(conversationsDir);
+  await waitForUrl(`http://localhost:${serverPort}/api/health`, "Memoryhold server");
+}
+
 function startServer(conversationsDir: string) {
   const env = { ...process.env, CONVERSATIONS_DIR: conversationsDir, PORT: String(serverPort) };
   if (isDev) {
@@ -96,6 +114,27 @@ async function waitForUrl(url: string, label: string) {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`${label} did not start in time`);
+}
+
+function installMenu() {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(process.platform === "darwin" ? [{ role: "appMenu" as const }] : []),
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "Open Folder…",
+          accelerator: "CmdOrCtrl+O",
+          click: () => void pickAndSwitchConversationsDir(),
+        },
+        { type: "separator" },
+        process.platform === "darwin" ? { role: "close" } : { role: "quit" },
+      ],
+    },
+    { role: "editMenu" },
+    { role: "viewMenu" },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 async function createWindow() {
@@ -124,6 +163,7 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  installMenu();
   const conversationsDir = await getConversationsDir();
   startServer(conversationsDir);
   startWebDev();
