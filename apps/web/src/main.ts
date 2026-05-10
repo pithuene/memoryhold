@@ -35,6 +35,7 @@ class MemoryholdApp extends LitElement {
   @state() private editingEntryId = "";
   @state() private editingDraft = "";
   private eventSource?: EventSource;
+  private shouldScrollToBottom = false;
 
   static styles = [unsafeCSS(katexCss), css`
     :host { display:block; height:100vh; max-height:100vh; overflow:hidden; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#0d0d0d; background:#fff; }
@@ -285,6 +286,7 @@ class MemoryholdApp extends LitElement {
     if (updateHistory) window.history.pushState({}, "", `/c/${encodeURIComponent(session.slug)}`);
     const data = await fetch(`${API}/api/sessions/${session.slug}`).then((r) => r.json());
     this.entries = data.entries;
+    this.shouldScrollToBottom = true;
     const es = new EventSource(`${API}/api/sessions/${session.slug}/events`);
     this.eventSource = es;
     es.onmessage = (message) => {
@@ -292,8 +294,12 @@ class MemoryholdApp extends LitElement {
       if (event.type === "entry_appended") {
         this.streamingContent = "";
         this.entries = [...this.entries, event.entry];
+        this.shouldScrollToBottom = true;
       }
-      if (event.type === "message_update") this.streamingContent = event.content;
+      if (event.type === "message_update") {
+        this.streamingContent = event.content;
+        this.shouldScrollToBottom = true;
+      }
       if (event.type === "stream_status") {
         this.isStreaming = event.isStreaming;
         if (!event.isStreaming && this.active) void this.openSession(this.active);
@@ -311,6 +317,15 @@ class MemoryholdApp extends LitElement {
       .replace(/\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>[\s\S]*?<\/MEMORYHOLD_ATTACHMENT_CONTEXT>/g, "")
       .replace(/\n*Attachments saved locally:\n(?:\s*-\s+.*(?:\n|$))+/g, "")
       .trim();
+  }
+
+  override updated() {
+    if (!this.shouldScrollToBottom) return;
+    this.shouldScrollToBottom = false;
+    requestAnimationFrame(() => {
+      const messages = this.renderRoot.querySelector(".messages");
+      if (messages) messages.scrollTop = messages.scrollHeight;
+    });
   }
 
   private renderMessage(message: any) {
@@ -417,6 +432,7 @@ class MemoryholdApp extends LitElement {
     const files = this.files;
     this.draft = "";
     this.files = [];
+    this.shouldScrollToBottom = true;
 
     let attachments = [];
     if (files.length > 0) {
