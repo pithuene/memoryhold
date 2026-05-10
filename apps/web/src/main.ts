@@ -25,21 +25,49 @@ class MemoryholdApp extends LitElement {
   private eventSource?: EventSource;
 
   static styles = css`
-    :host { display: block; height: 100vh; max-height: 100vh; overflow: hidden; font-family: system-ui, sans-serif; color: #e5e7eb; background: #111827; }
-    .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); height: 100vh; overflow: hidden; }
-    aside { border-right: 1px solid #374151; padding: 12px; overflow: auto; min-height: 0; }
-    main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; }
-    button { background: #2563eb; color: white; border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
-    .session { padding: 8px; border-radius: 8px; cursor: pointer; margin-top: 6px; }
-    .session:hover, .session.active { background: #1f2937; }
-    .messages { padding: 24px; overflow-y: auto; overflow-x: hidden; min-height: 0; }
-    .msg { max-width: 850px; margin: 0 auto 16px; white-space: pre-wrap; line-height: 1.5; }
-    .role { color: #9ca3af; font-size: 12px; margin-bottom: 4px; }
-    form { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 16px; border-top: 1px solid #374151; }
-    textarea { min-height: 64px; resize: vertical; border-radius: 8px; border: 1px solid #374151; background: #030712; color: #e5e7eb; padding: 10px; }
-    .composer-extra { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; color: #9ca3af; font-size: 13px; }
-    .error { margin: 8px 16px 0; padding: 10px; border-radius: 8px; background: #7f1d1d; color: #fecaca; white-space: pre-wrap; }
-    select { width: 100%; margin: 4px 0 8px; background: #030712; color: #e5e7eb; border: 1px solid #374151; border-radius: 6px; padding: 6px; }
+    :host { display:block; height:100vh; max-height:100vh; overflow:hidden; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#e5e7eb; background:#0b1020; }
+    * { box-sizing: border-box; }
+    .layout { display:grid; grid-template-columns: 320px minmax(0, 1fr); height:100vh; overflow:hidden; background: radial-gradient(circle at top left, #172554 0, #0b1020 34%, #080b14 100%); }
+    aside { display:flex; flex-direction:column; gap:16px; border-right:1px solid rgba(148,163,184,.18); padding:18px; overflow:auto; min-height:0; background:rgba(8,13,25,.86); backdrop-filter: blur(18px); }
+    main { display:grid; grid-template-rows:auto minmax(0, 1fr) auto; min-width:0; min-height:0; overflow:hidden; }
+    .brand { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    h2 { margin:0; font-size:20px; letter-spacing:-.02em; }
+    h3 { margin:0 0 8px; color:#94a3b8; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+    .panel { padding:12px; border:1px solid rgba(148,163,184,.14); border-radius:16px; background:rgba(15,23,42,.55); }
+    button { background:#2563eb; color:white; border:0; border-radius:12px; padding:10px 12px; cursor:pointer; font-weight:650; transition:.15s ease; }
+    button:hover { filter:brightness(1.12); transform:translateY(-1px); }
+    button.secondary { background:#1e293b; color:#cbd5e1; }
+    button.success { background:#047857; }
+    .new-btn { width:100%; }
+    .session-list { display:flex; flex-direction:column; gap:6px; }
+    .session { padding:11px 12px; border:1px solid transparent; border-radius:13px; cursor:pointer; color:#cbd5e1; }
+    .session:hover { background:rgba(30,41,59,.75); }
+    .session.active { background:rgba(37,99,235,.18); border-color:rgba(96,165,250,.35); color:white; }
+    .session-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
+    small, .muted { color:#64748b; font-size:12px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:64px; padding:0 28px; border-bottom:1px solid rgba(148,163,184,.14); background:rgba(8,13,25,.5); }
+    .chat-title { min-width:0; }
+    .chat-title strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .status-pill { border:1px solid rgba(148,163,184,.2); border-radius:999px; padding:6px 10px; color:#94a3b8; font-size:12px; background:rgba(15,23,42,.7); }
+    .messages { padding:32px 28px; overflow-y:auto; overflow-x:hidden; min-height:0; scroll-behavior:smooth; }
+    .empty { max-width:680px; margin:18vh auto 0; text-align:center; color:#94a3b8; }
+    .empty h1 { color:white; margin:0 0 8px; font-size:34px; letter-spacing:-.04em; }
+    .msg { max-width:880px; margin:0 auto 18px; white-space:pre-wrap; line-height:1.65; font-size:15px; }
+    .bubble { padding:16px 18px; border-radius:18px; border:1px solid rgba(148,163,184,.14); background:rgba(15,23,42,.72); box-shadow:0 10px 30px rgba(0,0,0,.12); }
+    .msg.user .bubble { margin-left:auto; max-width:78%; background:#2563eb; border-color:rgba(147,197,253,.35); color:white; }
+    .msg.assistant .bubble { background:rgba(15,23,42,.72); }
+    .msg.error .bubble { background:rgba(127,29,29,.35); border-color:rgba(248,113,113,.35); color:#fecaca; }
+    .role { color:#94a3b8; font-size:12px; font-weight:700; margin:0 0 6px; text-transform:capitalize; }
+    .timeline { max-width:880px; margin:0 auto 14px; color:#64748b; font-size:12px; display:flex; align-items:center; gap:10px; }
+    .timeline:before, .timeline:after { content:""; height:1px; background:rgba(148,163,184,.15); flex:1; }
+    form { padding:18px 28px 22px; border-top:1px solid rgba(148,163,184,.14); background:linear-gradient(to top, rgba(8,13,25,.96), rgba(8,13,25,.82)); }
+    .composer { max-width:920px; margin:0 auto; display:grid; grid-template-columns:1fr auto; gap:10px; padding:10px; border:1px solid rgba(148,163,184,.22); border-radius:20px; background:rgba(2,6,23,.82); box-shadow:0 18px 60px rgba(0,0,0,.25); }
+    textarea { min-height:58px; max-height:180px; resize:vertical; border:0; outline:0; background:transparent; color:#e5e7eb; padding:10px 12px; font:inherit; line-height:1.45; }
+    .send-btn { align-self:end; min-width:84px; border-radius:14px; }
+    .composer-extra { grid-column:1 / -1; display:flex; align-items:center; gap:12px; padding:0 8px 4px; color:#94a3b8; font-size:13px; }
+    .error { margin:12px 28px 0; padding:12px 14px; border:1px solid rgba(248,113,113,.35); border-radius:12px; background:rgba(127,29,29,.35); color:#fecaca; white-space:pre-wrap; }
+    select, .oauth-textarea { width:100%; margin:4px 0 8px; background:#020617; color:#e5e7eb; border:1px solid rgba(148,163,184,.22); border-radius:10px; padding:9px; }
+    .oauth-buttons { display:grid; gap:8px; }
   `;
 
   override connectedCallback() {
@@ -189,15 +217,20 @@ class MemoryholdApp extends LitElement {
     return html`
       <div class="layout">
         <aside>
-          <h2>Memoryhold</h2>
-          <button @click=${this.newSession}>New conversation</button>
-          <h3>OAuth</h3>
-          ${this.oauthProviders.map((p) => html`<button style="display:block;margin:4px 0;background:${p.authenticated ? "#059669" : "#374151"}" @click=${() => this.startOAuth(p.id)}>${p.authenticated ? "✓" : "Login"} ${p.name}</button>`)}
-          ${this.loginId ? html`
-            <small>Browser opened. If callback does not complete, paste redirect URL/code:</small>
-            <textarea style="width:100%;min-height:60px" .value=${this.callbackInput} @input=${(e: InputEvent) => this.callbackInput = (e.target as HTMLTextAreaElement).value}></textarea>
-            <button @click=${this.completeOAuth}>Complete login</button>
-          ` : ""}
+          <div class="brand"><h2>Memoryhold</h2></div>
+          <button class="new-btn" @click=${this.newSession}>＋ New conversation</button>
+          <section class="panel">
+            <h3>Accounts</h3>
+            <div class="oauth-buttons">
+              ${this.oauthProviders.map((p) => html`<button class=${p.authenticated ? "success" : "secondary"} @click=${() => this.startOAuth(p.id)}>${p.authenticated ? "✓" : "Login"} ${p.name}</button>`)}
+            </div>
+            ${this.loginId ? html`
+              <p><small>Browser opened. If callback does not complete, paste redirect URL/code:</small></p>
+              <textarea class="oauth-textarea" .value=${this.callbackInput} @input=${(e: InputEvent) => this.callbackInput = (e.target as HTMLTextAreaElement).value}></textarea>
+              <button @click=${this.completeOAuth}>Complete login</button>
+            ` : ""}
+          </section>
+          <section class="panel">
           <h3>Model</h3>
           <select .value=${this.selectedProvider} @change=${(e: Event) => {
             this.selectedProvider = (e.target as HTMLSelectElement).value;
@@ -211,27 +244,43 @@ class MemoryholdApp extends LitElement {
           <select .value=${this.thinkingLevel} @change=${(e: Event) => this.thinkingLevel = (e.target as HTMLSelectElement).value}>
             ${["off", "minimal", "low", "medium", "high"].map((level) => html`<option value=${level}>thinking: ${level}</option>`)}
           </select>
-          ${this.sessions.map((s) => html`<div class="session ${this.active?.slug === s.slug ? "active" : ""}" @click=${() => this.openSession(s)}>${s.title}<br /><small>${new Date(s.lastModified).toLocaleString()}</small></div>`)}
+          </section>
+          <section>
+            <h3>Conversations</h3>
+            <div class="session-list">
+              ${this.sessions.map((s) => html`<div class="session ${this.active?.slug === s.slug ? "active" : ""}" @click=${() => this.openSession(s)}><div class="session-title">${s.title}</div><small>${new Date(s.lastModified).toLocaleString()}</small></div>`)}
+            </div>
+          </section>
         </aside>
         <main>
+          <header class="topbar">
+            <div class="chat-title"><strong>${this.active?.title ?? "No conversation selected"}</strong><small>${this.selectedProvider}${this.selectedModel ? ` / ${this.selectedModel}` : ""}</small></div>
+            <div class="status-pill">${this.isStreaming ? "Streaming" : "Ready"}</div>
+          </header>
           ${this.errorMessage ? html`<div class="error">${this.errorMessage}</div>` : ""}
           <div class="messages">
             ${this.active ? html`
               ${this.entries.map((e: any) => {
-                if (e.type === "message") return html`<div class="msg"><div class="role">${e.message.role}${e.message.stopReason === "error" ? " · error" : ""}</div>${this.renderMessage(e.message)}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div>`;
-                if (e.type === "model_change") return html`<div class="msg"><div class="role">model changed</div>${e.provider}/${e.modelId}</div>`;
-                if (e.type === "thinking_level_change") return html`<div class="msg"><div class="role">thinking changed</div>${e.thinkingLevel}</div>`;
+                if (e.type === "message") {
+                  const role = e.message.role === "toolResult" ? "tool" : e.message.role;
+                  const classes = `msg ${role} ${e.message.stopReason === "error" ? "error" : ""}`;
+                  return html`<div class=${classes}><div class="role">${role}${e.message.stopReason === "error" ? " · error" : ""}</div><div class="bubble">${this.renderMessage(e.message)}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div></div>`;
+                }
+                if (e.type === "model_change") return html`<div class="timeline">model: ${e.provider}/${e.modelId}</div>`;
+                if (e.type === "thinking_level_change") return html`<div class="timeline">thinking: ${e.thinkingLevel}</div>`;
                 return "";
               })}
-              ${this.streamingContent ? html`<div class="msg"><div class="role">assistant · streaming</div>${this.streamingContent}</div>` : ""}
-            ` : html`<p>Select or create a conversation.</p>`}
+              ${this.streamingContent ? html`<div class="msg assistant"><div class="role">assistant · streaming</div><div class="bubble">${this.streamingContent}</div></div>` : ""}
+            ` : html`<div class="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>`}
           </div>
           <form @submit=${this.send}>
-            <textarea .value=${this.draft} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
-            <button>${this.isStreaming ? "Queue" : "Send"}</button>
-            <div class="composer-extra">
-              <input type="file" multiple @change=${(e: Event) => this.files = Array.from((e.target as HTMLInputElement).files ?? [])} />
-              ${this.files.length ? html`<span>${this.files.length} file(s) selected</span>` : ""}
+            <div class="composer">
+              <textarea .value=${this.draft} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
+              <button class="send-btn">${this.isStreaming ? "Queue" : "Send"}</button>
+              <div class="composer-extra">
+                <input type="file" multiple @change=${(e: Event) => this.files = Array.from((e.target as HTMLInputElement).files ?? [])} />
+                ${this.files.length ? html`<span>${this.files.length} file(s) selected</span>` : ""}
+              </div>
             </div>
           </form>
         </main>
