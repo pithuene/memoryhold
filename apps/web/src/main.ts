@@ -45,6 +45,7 @@ class MemoryholdApp extends LitElement {
     aside { display:flex; flex-direction:column; gap:4px; min-height:0; overflow:auto; padding:12px 8px 0; background:#f9f9f9; border-right:1px solid #e5e5e5; }
     :host(.electron) aside { padding-top:12px; }
     :host(.electron) .brand h2 { display:none; }
+    :host(.electron) .brand { justify-content:flex-end; }
     .layout.sidebar-collapsed aside { padding:0; border-right:0; overflow:hidden; }
     main { display:grid; grid-template-rows:auto minmax(0,1fr) auto; min-width:0; min-height:0; overflow:hidden; background:#fff; }
     .brand { display:flex; align-items:center; justify-content:space-between; height:40px; padding:0 8px 8px; }
