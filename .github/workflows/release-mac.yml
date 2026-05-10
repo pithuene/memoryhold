@@ -1,0 +1,47 @@
+name: Build macOS app
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  macos:
+    name: Package macOS app
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.19.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check
+        run: pnpm check
+
+      - name: Package macOS app
+        run: pnpm package:mac
+
+      - name: Zip app bundle
+        run: |
+          cd release
+          ditto -c -k --sequesterRsrc --keepParent Memoryhold-darwin-*/Memoryhold.app Memoryhold-macos-x64.zip
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Memoryhold-macos-x64
+          path: release/Memoryhold-macos-x64.zip
+          if-no-files-found: error
