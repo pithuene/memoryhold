@@ -1,13 +1,13 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, css, html, unsafeCSS } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { customElement, state } from "lit/decorators.js";
 import type { SessionMetadata, SessionTreeEntry } from "@memoryhold/shared";
 import { marked } from "marked";
 import markedKatex from "marked-katex-extension";
 import DOMPurify from "dompurify";
-import "katex/dist/katex.min.css";
+import katexCss from "katex/dist/katex.min.css?inline";
 
-marked.use(markedKatex({ throwOnError: false, displayMode: false }));
+marked.use(markedKatex({ throwOnError: false, displayMode: false, nonStandard: true }));
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
 
@@ -32,7 +32,7 @@ class MemoryholdApp extends LitElement {
   @state() private view: "chat" | "settings" = "chat";
   private eventSource?: EventSource;
 
-  static styles = css`
+  static styles = [unsafeCSS(katexCss), css`
     :host { display:block; height:100vh; max-height:100vh; overflow:hidden; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#e5e7eb; background:#0b1020; }
     * { box-sizing: border-box; }
     .layout { display:grid; grid-template-columns: 300px minmax(0, 1fr); height:100vh; overflow:hidden; background:#080c17; }
@@ -122,7 +122,7 @@ class MemoryholdApp extends LitElement {
     .meta-row { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
     .dot { width:8px; height:8px; border-radius:999px; background:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,.12); }
     @media (max-width: 900px) { .layout { grid-template-columns:1fr; } aside { display:none; } .msg.user .message-body { max-width:86%; } }
-  `;
+  `];
 
   override connectedCallback() {
     super.connectedCallback();
@@ -224,7 +224,10 @@ class MemoryholdApp extends LitElement {
   }
 
   private renderMarkdown(markdown: string) {
-    const rawHtml = marked.parse(markdown, { async: false }) as string;
+    const normalized = markdown
+      .replace(/\\\[([\s\S]*?)\\\]/g, (_match, formula) => `\n$$\n${formula.trim()}\n$$\n`)
+      .replace(/\\\(([\s\S]*?)\\\)/g, (_match, formula) => `$${formula.trim()}$`);
+    const rawHtml = marked.parse(normalized, { async: false }) as string;
     return html`<div class="markdown">${unsafeHTML(DOMPurify.sanitize(rawHtml))}</div>`;
   }
 
