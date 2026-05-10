@@ -69,21 +69,31 @@ export class SessionRepo {
   }
 
   async appendUserMessage(slug: string, content: string): Promise<MessageEntry> {
+    return this.appendMessage(slug, "user", content);
+  }
+
+  async appendAssistantMessage(slug: string, content: string, parentId?: string | null): Promise<MessageEntry> {
+    return this.appendMessage(slug, "assistant", content, parentId);
+  }
+
+  private async appendMessage(slug: string, role: "user" | "assistant", content: string, parentId?: string | null): Promise<MessageEntry> {
     const { metadata } = await this.get(slug);
     const now = new Date().toISOString();
     const entry: MessageEntry = {
       type: "message",
       id: randomUUID().slice(0, 8),
-      parentId: metadata.currentLeafId,
+      parentId: parentId === undefined ? metadata.currentLeafId : parentId,
       timestamp: now,
-      message: { role: "user", content, timestamp: Date.now() },
+      message: { role, content, timestamp: Date.now() },
     };
     await appendFile(join(this.sessionDir(slug), "session.jsonl"), `${JSON.stringify(entry)}\n`);
     metadata.currentLeafId = entry.id;
     metadata.lastModified = now;
     metadata.messageCount += 1;
-    metadata.preview = metadata.preview || content.slice(0, 500);
-    if (metadata.title === "New conversation") metadata.title = content.split(/\s+/).slice(0, 8).join(" ");
+    if (role === "user") {
+      metadata.preview = metadata.preview || content.slice(0, 500);
+      if (metadata.title === "New conversation") metadata.title = content.split(/\s+/).slice(0, 8).join(" ");
+    }
     await this.saveMetadata(metadata);
     return entry;
   }

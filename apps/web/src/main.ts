@@ -10,6 +10,9 @@ class MemoryholdApp extends LitElement {
   @state() private active?: SessionMetadata;
   @state() private entries: SessionTreeEntry[] = [];
   @state() private draft = "";
+  @state() private streamingContent = "";
+  @state() private isStreaming = false;
+  private eventSource?: EventSource;
 
   static styles = css`
     :host { display: block; height: 100vh; font-family: system-ui, sans-serif; color: #e5e7eb; background: #111827; }
@@ -42,13 +45,22 @@ class MemoryholdApp extends LitElement {
   }
 
   private async openSession(session: SessionMetadata) {
+    this.eventSource?.close();
+    this.streamingContent = "";
+    this.isStreaming = false;
     this.active = session;
     const data = await fetch(`${API}/api/sessions/${session.slug}`).then((r) => r.json());
     this.entries = data.entries;
     const es = new EventSource(`${API}/api/sessions/${session.slug}/events`);
+    this.eventSource = es;
     es.onmessage = (message) => {
       const event = JSON.parse(message.data);
-      if (event.type === "entry_appended") this.entries = [...this.entries, event.entry];
+      if (event.type === "entry_appended") {
+        this.streamingContent = "";
+        this.entries = [...this.entries, event.entry];
+      }
+      if (event.type === "message_update") this.streamingContent = event.content;
+      if (event.type === "stream_status") this.isStreaming = event.isStreaming;
       if (event.type === "session_updated") {
         this.active = event.metadata;
         void this.loadSessions();
@@ -78,11 +90,14 @@ class MemoryholdApp extends LitElement {
         </aside>
         <main>
           <div class="messages">
-            ${this.active ? this.entries.map((e: any) => e.type === "message" ? html`<div class="msg"><div class="role">${e.message.role}</div>${e.message.content}</div>` : "") : html`<p>Select or create a conversation.</p>`}
+            ${this.active ? html`
+              ${this.entries.map((e: any) => e.type === "message" ? html`<div class="msg"><div class="role">${e.message.role}</div>${e.message.content}</div>` : "")}
+              ${this.streamingContent ? html`<div class="msg"><div class="role">assistant · streaming</div>${this.streamingContent}</div>` : ""}
+            ` : html`<p>Select or create a conversation.</p>`}
           </div>
           <form @submit=${this.send}>
             <textarea .value=${this.draft} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
-            <button>Send</button>
+            <button>${this.isStreaming ? "Queue" : "Send"}</button>
           </form>
         </main>
       </div>

@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import type { SendMessageRequest } from "@memoryhold/shared";
 import { SessionRepo } from "./session-repo.js";
 import { EventHub } from "./events.js";
+import { SessionRunner } from "./session-runner.js";
 
 const conversationsDir = process.env.CONVERSATIONS_DIR;
 if (!conversationsDir) {
@@ -13,6 +14,7 @@ if (!conversationsDir) {
 
 const repo = new SessionRepo(conversationsDir);
 const events = new EventHub();
+const runner = new SessionRunner(repo, events);
 const app = new Hono();
 
 app.use("*", cors());
@@ -32,11 +34,7 @@ app.get("/api/sessions/:slug", async (c) => c.json(await repo.get(c.req.param("s
 app.post("/api/sessions/:slug/messages", async (c) => {
   const slug = c.req.param("slug");
   const body = (await c.req.json()) as SendMessageRequest;
-  const entry = await repo.appendUserMessage(slug, body.content);
-  const { metadata } = await repo.get(slug);
-  events.publish(slug, { type: "entry_appended", entry });
-  events.publish(slug, { type: "session_updated", metadata });
-  // TODO: enqueue/steer backend pi agent generation.
+  const entry = await runner.enqueueUserMessage(slug, body.content);
   return c.json({ ok: true, entry });
 });
 
