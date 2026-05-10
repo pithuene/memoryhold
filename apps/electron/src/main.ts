@@ -11,6 +11,8 @@ let serverProcess: ChildProcess | undefined;
 let webProcess: ChildProcess | undefined;
 let mainWindow: BrowserWindow | undefined;
 
+app.setName("Memoryhold");
+
 const isDev = !app.isPackaged;
 const serverPort = Number(process.env.MEMORYHOLD_SERVER_PORT ?? 8787);
 const webUrl = process.env.MEMORYHOLD_WEB_URL ?? `http://localhost:5173`;
