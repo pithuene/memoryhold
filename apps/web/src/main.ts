@@ -78,6 +78,8 @@ class MemoryholdApp extends LitElement {
     .composer-extra { grid-column:1 / -1; display:flex; align-items:center; gap:12px; padding:0 8px 4px; color:#94a3b8; font-size:13px; }
     input[type="file"] { display:none; }
     .file-label { display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(148,163,184,.16); border-radius:10px; padding:7px 10px; background:#111827; color:#cbd5e1; font-weight:700; cursor:pointer; }
+    .attachment-note { margin-top:10px; padding-top:10px; border-top:1px solid rgba(148,163,184,.14); color:#94a3b8; font-size:12px; line-height:1.4; }
+    .attachment-note strong { color:#cbd5e1; }
     .error { margin:12px 28px 0; padding:12px 14px; border:1px solid rgba(248,113,113,.35); border-radius:12px; background:rgba(127,29,29,.35); color:#fecaca; white-space:pre-wrap; }
     .settings { padding:34px 30px; overflow:auto; background:linear-gradient(180deg,#0a0f1d,#080c17); }
     .settings-inner { max-width:820px; margin:0 auto; display:grid; gap:18px; }
@@ -194,7 +196,7 @@ class MemoryholdApp extends LitElement {
   }
 
   private renderMessage(message: any) {
-    const body = this.renderContent(message.content).replace(/\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>[\s\S]*?<\/MEMORYHOLD_ATTACHMENT_CONTEXT>/g, "\n\nAttachments included.");
+    const body = this.renderContent(message.content).replace(/\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>[\s\S]*?<\/MEMORYHOLD_ATTACHMENT_CONTEXT>/g, "");
     const error = message.errorMessage ? `Error: ${message.errorMessage}` : "";
     return [body, error].filter(Boolean).join("\n\n");
   }
@@ -308,7 +310,7 @@ class MemoryholdApp extends LitElement {
                     const classes = `msg ${role} ${e.message.stopReason === "error" ? "error" : ""}`;
                     const label = `${role}${e.message.stopReason === "error" ? " · error" : ""}`;
                     const avatar = role === "user" ? "U" : role === "tool" ? "T" : "M";
-                    return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${this.renderMessage(e.message)}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div></div></div>`;
+                    return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${this.renderMessage(e.message)}${e.message.attachments?.length ? html`<div class="attachment-note"><strong>Attachments included:</strong> ${e.message.attachments.map((a: any) => a.filename).join(", ")}</div>` : ""}</div></div></div>`;
                   }
                   if (e.type === "model_change" || e.type === "thinking_level_change") return "";
                   return "";
