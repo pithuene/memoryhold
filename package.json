@@ -8,6 +8,7 @@
     "build": "pnpm -r build",
     "check": "pnpm -r check",
     "screenshot": "node scripts/screenshot.mjs",
+    "chatgpt:login": "CHATGPT_REF_SETUP=1 node scripts/chatgpt-reference.mjs",
     "screenshot:chatgpt-ref": "node scripts/chatgpt-reference.mjs"
   },
   "packageManager": "pnpm@9.15.0",
