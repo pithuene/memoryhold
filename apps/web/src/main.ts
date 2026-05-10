@@ -77,7 +77,10 @@ class MemoryholdApp extends LitElement {
         this.entries = [...this.entries, event.entry];
       }
       if (event.type === "message_update") this.streamingContent = event.content;
-      if (event.type === "stream_status") this.isStreaming = event.isStreaming;
+      if (event.type === "stream_status") {
+        this.isStreaming = event.isStreaming;
+        if (!event.isStreaming && this.active) void this.openSession(this.active);
+      }
       if (event.type === "error") this.errorMessage = event.message;
       if (event.type === "session_updated") {
         this.active = event.metadata;

@@ -91,15 +91,37 @@ export class SessionRunner {
     this.events.publish(slug, { type: "stream_status", isStreaming: true });
     try {
       await state.agent.prompt(message);
+      if (state.agent.state.errorMessage) {
+        await this.persistSyntheticError(slug, state.agent.state.errorMessage);
+      }
     } catch (error) {
-      this.events.publish(slug, { type: "error", message: error instanceof Error ? error.message : String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      this.events.publish(slug, { type: "error", message });
+      await this.persistSyntheticError(slug, message);
     } finally {
       state.isStreaming = false;
       this.events.publish(slug, { type: "stream_status", isStreaming: false });
     }
   }
 
+  private async persistSyntheticError(slug: string, errorMessage: string): Promise<void> {
+    const errorEntry = await this.repo.appendRawMessage(slug, {
+      role: "assistant",
+      content: [{ type: "text", text: "" }],
+      stopReason: "error",
+      errorMessage,
+      timestamp: Date.now(),
+    });
+    this.events.publish(slug, { type: "error", message: errorMessage });
+    await this.publishSessionUpdate(slug, { type: "entry_appended", entry: errorEntry });
+  }
+
   private async handleAgentEvent(slug: string, event: AgentEvent): Promise<void> {
+    if (event.type === "agent_end") {
+      const last = event.messages[event.messages.length - 1] as any;
+      if (last?.errorMessage) this.events.publish(slug, { type: "error", message: last.errorMessage });
+      return;
+    }
     if (event.type === "message_update") {
       this.events.publish(slug, { type: "message_update", parentId: null, content: messageText(event.message) });
       return;
