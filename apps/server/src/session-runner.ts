@@ -13,9 +13,18 @@ interface RuntimeState {
   isStreaming: boolean;
 }
 
-function userMessage(content: string, attachmentContext: string, attachments: UploadedAttachmentRef[]): AgentMessage {
+function isImageAttachment(attachment: UploadedAttachmentRef): boolean {
+  return attachment.mimeType?.startsWith("image/") || /\.(png|jpe?g|gif|webp)$/i.test(attachment.filename);
+}
+
+async function userMessage(repo: SessionRepo, slug: string, content: string, attachmentContext: string, attachments: UploadedAttachmentRef[]): Promise<AgentMessage> {
   const suffix = attachmentContext ? `\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>\n${attachmentContext}\n</MEMORYHOLD_ATTACHMENT_CONTEXT>` : "";
-  return { role: "user", content: [{ type: "text", text: content + suffix }], attachments, timestamp: Date.now() } as AgentMessage;
+  const blocks: any[] = [{ type: "text", text: content + suffix }];
+  for (const attachment of attachments.filter(isImageAttachment)) {
+    const bytes = await repo.readAttachment(slug, attachment.relativePath);
+    blocks.push({ type: "image", data: bytes.toString("base64"), mimeType: attachment.mimeType || "image/jpeg" });
+  }
+  return { role: "user", content: blocks, attachments, timestamp: Date.now() } as AgentMessage;
 }
 
 function truncateText(text: string, maxChars = 40_000): string {
@@ -59,7 +68,7 @@ export class SessionRunner {
     }
 
     const attachmentContext = await this.buildAttachmentContext(slug, attachments);
-    const message = userMessage(content, attachmentContext, attachments);
+    const message = await userMessage(this.repo, slug, content, attachmentContext, attachments);
     if (state.agent.state.isStreaming) {
       state.agent.steer(message);
       return { queued: true };
@@ -71,8 +80,10 @@ export class SessionRunner {
 
   private async buildAttachmentContext(slug: string, attachments: UploadedAttachmentRef[]): Promise<string> {
     if (!attachments.length) return "";
-    const sections: string[] = ["The user attached file(s). Their extracted contents are included below. Use them to answer questions about the files."];
-    for (const attachment of attachments) {
+    const textAttachments = attachments.filter((attachment) => !isImageAttachment(attachment));
+    if (!textAttachments.length) return "";
+    const sections: string[] = ["The user attached file(s). Their extracted contents are included below. Use them to answer questions about the files. Image attachments are sent as image inputs separately."]; 
+    for (const attachment of textAttachments) {
       const header = `Attachment: ${attachment.filename} (${attachment.mimeType || "unknown type"}, ${attachment.relativePath})`;
       try {
         const bytes = await this.repo.readAttachment(slug, attachment.relativePath);

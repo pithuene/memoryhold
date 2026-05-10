@@ -410,7 +410,7 @@ class MemoryholdApp extends LitElement {
       return content.map((block: any) => {
         if (typeof block === "string") return block;
         if (block?.type === "text") return block.text ?? "";
-        if (block?.type === "thinking") return `Thinking:\n${block.thinking ?? ""}`;
+        if (block?.type === "thinking") return "";
         if (block?.type === "toolCall") return `[tool call: ${block.name}]`;
         if (block?.type === "image") return `[image]`;
         return JSON.stringify(block);
