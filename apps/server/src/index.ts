@@ -69,6 +69,21 @@ app.post("/api/sessions/:slug/messages", async (c) => {
   return c.json({ ok: true, ...result });
 });
 
+app.patch("/api/sessions/:slug/messages/:entryId", async (c) => {
+  const slug = c.req.param("slug");
+  if (runner.isStreaming(slug)) return c.text("Cannot edit while a response is streaming", 409);
+  const body = (await c.req.json()) as SendMessageRequest;
+  const attachments = await repo.truncateBeforeMessage(slug, c.req.param("entryId"));
+  runner.reset(slug);
+  const { metadata } = await repo.get(slug);
+  events.publish(slug, { type: "session_updated", metadata });
+  const result = await runner.enqueueUserMessage(slug, body.content, attachments, {
+    model: body.model,
+    thinkingLevel: body.thinkingLevel,
+  });
+  return c.json({ ok: true, ...result });
+});
+
 app.get("/api/sessions/:slug/events", (c) => {
   const slug = c.req.param("slug");
   const stream = new ReadableStream({

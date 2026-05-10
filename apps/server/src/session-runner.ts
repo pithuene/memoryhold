@@ -32,6 +32,14 @@ export class SessionRunner {
     private readonly authStore: AuthStore,
   ) {}
 
+  isStreaming(slug: string): boolean {
+    return this.states.get(slug)?.agent.state.isStreaming ?? false;
+  }
+
+  reset(slug: string): void {
+    this.states.delete(slug);
+  }
+
   async enqueueUserMessage(
     slug: string,
     content: string,

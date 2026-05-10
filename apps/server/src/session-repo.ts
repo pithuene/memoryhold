@@ -175,6 +175,27 @@ export class SessionRepo {
     return { id, filename: file.name, mimeType: file.type, relativePath };
   }
 
+  async truncateBeforeMessage(slug: string, entryId: string): Promise<UploadedAttachmentRef[]> {
+    const dir = this.sessionDir(slug);
+    const metadata = JSON.parse(await readFile(join(dir, "metadata.json"), "utf8")) as SessionMetadata;
+    const lines = (await readFile(join(dir, "session.jsonl"), "utf8")).split("\n").filter(Boolean);
+    const header = lines[0];
+    const entries = lines.slice(1).map((line) => JSON.parse(line) as SessionTreeEntry);
+    const index = entries.findIndex((entry: any) => entry.type === "message" && entry.id === entryId && entry.message?.role === "user");
+    if (index === -1) throw new Error("User message not found");
+
+    const oldEntry = entries[index] as MessageEntry;
+    const attachments = ((oldEntry.message as any)?.attachments ?? []) as UploadedAttachmentRef[];
+    const kept = entries.slice(0, index);
+    await writeFile(join(dir, "session.jsonl"), `${[header, ...kept.map((entry) => JSON.stringify(entry))].join("\n")}\n`);
+    const last = kept.at(-1);
+    metadata.currentLeafId = last?.id ?? null;
+    metadata.lastModified = new Date().toISOString();
+    metadata.messageCount = kept.filter((entry) => entry.type === "message").length;
+    await this.saveMetadata(metadata);
+    return attachments;
+  }
+
   async saveMetadata(metadata: SessionMetadata): Promise<void> {
     await writeFile(join(this.sessionDir(metadata.slug), "metadata.json"), `${JSON.stringify(metadata, null, 2)}\n`);
   }

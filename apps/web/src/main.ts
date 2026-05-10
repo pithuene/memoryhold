@@ -32,6 +32,8 @@ class MemoryholdApp extends LitElement {
   @state() private callbackInput = "";
   @state() private view: "chat" | "settings" = "chat";
   @state() private sidebarCollapsed = false;
+  @state() private editingEntryId = "";
+  @state() private editingDraft = "";
   private eventSource?: EventSource;
 
   static styles = [unsafeCSS(katexCss), css`
@@ -75,6 +77,16 @@ class MemoryholdApp extends LitElement {
     .msg.user .message-body { max-width:min(70%, 640px); }
     .bubble { width:100%; max-width:100%; padding:0; border:0; background:transparent; box-shadow:none; }
     .msg.user .bubble { width:fit-content; padding:10px 16px; border-radius:22px; background:#f4f4f4; color:#0d0d0d; }
+    .message-actions { display:flex; gap:4px; opacity:0; transition:opacity .12s ease; margin-top:6px; }
+    .msg:hover .message-actions, .msg:focus-within .message-actions { opacity:1; }
+    .msg.user .message-actions { justify-content:flex-end; padding-right:8px; }
+    .action-btn { width:30px; height:30px; padding:0; border-radius:8px; display:grid; place-items:center; background:transparent; color:#666; font-size:15px; }
+    .action-btn:hover { background:#ececec; color:#111; }
+    .edit-box { display:grid; gap:8px; min-width:min(560px, 70vw); }
+    .edit-textarea { width:100%; min-height:86px; resize:vertical; border:0; outline:0; background:#fff; border-radius:14px; padding:10px 12px; font:inherit; line-height:1.45; }
+    .edit-actions { display:flex; justify-content:flex-end; gap:8px; }
+    .edit-actions button { padding:7px 12px; border-radius:999px; }
+    .edit-actions .cancel { background:#fff; color:#111; border:1px solid #ddd; }
     .msg.error { margin-top:8px; }
     .msg.error .bubble { padding:12px 14px 12px 38px; border-radius:12px; border:1px solid #f1b8b8; background:#fff7f7; color:#8a1f1f; position:relative; box-shadow:none; }
     .msg.error .bubble::before { content:"!"; position:absolute; left:14px; top:14px; width:16px; height:16px; border-radius:999px; display:grid; place-items:center; background:#ef4444; color:white; font-size:11px; font-weight:800; }
@@ -264,11 +276,15 @@ class MemoryholdApp extends LitElement {
     };
   }
 
-  private renderMessage(message: any) {
-    const body = this.renderContent(message.content)
+  private messageDisplayText(message: any) {
+    return this.renderContent(message.content)
       .replace(/\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>[\s\S]*?<\/MEMORYHOLD_ATTACHMENT_CONTEXT>/g, "")
       .replace(/\n*Attachments saved locally:\n(?:\s*-\s+.*(?:\n|$))+/g, "")
       .trim();
+  }
+
+  private renderMessage(message: any) {
+    const body = this.messageDisplayText(message);
     const error = message.errorMessage ? `Error: ${message.errorMessage}` : "";
     return this.renderMarkdown([body, error].filter(Boolean).join("\n\n"));
   }
@@ -330,6 +346,38 @@ class MemoryholdApp extends LitElement {
       }).join("\n");
     }
     return content == null ? "" : JSON.stringify(content, null, 2);
+  }
+
+  private startEdit(entry: any) {
+    this.editingEntryId = entry.id;
+    this.editingDraft = this.messageDisplayText(entry.message);
+  }
+
+  private async copyMessage(message: any) {
+    await navigator.clipboard.writeText(this.messageDisplayText(message));
+  }
+
+  private async saveEdit(entry: any) {
+    if (!this.active || !this.editingDraft.trim()) return;
+    const content = this.editingDraft.trim();
+    this.editingEntryId = "";
+    this.editingDraft = "";
+    this.streamingContent = "";
+    this.errorMessage = "";
+    const response = await fetch(`${API}/api/sessions/${this.active.slug}/messages/${entry.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content,
+        model: this.selectedProvider && this.selectedModel ? { provider: this.selectedProvider, modelId: this.selectedModel } : undefined,
+        thinkingLevel: this.thinkingLevel,
+      }),
+    });
+    if (!response.ok) {
+      this.errorMessage = await response.text();
+      return;
+    }
+    await this.openSession(this.active);
   }
 
   private async send(ev: Event) {
@@ -426,7 +474,14 @@ class MemoryholdApp extends LitElement {
                     const classes = `msg ${role} ${e.message.stopReason === "error" ? "error" : ""}`;
                     const label = `${role}${e.message.stopReason === "error" ? " · error" : ""}`;
                     const avatar = role === "user" ? "U" : role === "tool" ? "T" : "M";
-                    return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${this.renderAttachments(this.messageAttachments(e.message))}${this.renderMessage(e.message)}</div></div></div>`;
+                    const isEditing = this.editingEntryId === e.id;
+                    return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${isEditing ? html`
+                      <div class="edit-box">
+                        ${this.renderAttachments(this.messageAttachments(e.message))}
+                        <textarea class="edit-textarea" .value=${this.editingDraft} @input=${(ev: InputEvent) => this.editingDraft = (ev.target as HTMLTextAreaElement).value}></textarea>
+                        <div class="edit-actions"><button class="cancel" @click=${() => this.editingEntryId = ""}>Cancel</button><button @click=${() => this.saveEdit(e)}>Send</button></div>
+                      </div>
+                    ` : html`${this.renderAttachments(this.messageAttachments(e.message))}${this.renderMessage(e.message)}`}</div>${role === "user" && !isEditing ? html`<div class="message-actions"><button class="action-btn" title="Copy" @click=${() => this.copyMessage(e.message)}>⧉</button><button class="action-btn" title="Edit" @click=${() => this.startEdit(e)}>✎</button></div>` : ""}</div></div>`;
                   }
                   if (e.type === "model_change" || e.type === "thinking_level_change") return "";
                   return "";
