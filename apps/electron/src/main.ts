@@ -144,6 +144,8 @@ async function createWindow() {
     minWidth: 960,
     minHeight: 700,
     title: "Memoryhold",
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 16 } : undefined,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
