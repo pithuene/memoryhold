@@ -23,7 +23,20 @@ export class SessionRunner {
     private readonly events: EventHub,
   ) {}
 
-  async enqueueUserMessage(slug: string, content: string, attachments: UploadedAttachmentRef[] = []): Promise<MessageEntry> {
+  async enqueueUserMessage(
+    slug: string,
+    content: string,
+    attachments: UploadedAttachmentRef[] = [],
+    options: { model?: { provider: string; modelId: string }; thinkingLevel?: string } = {},
+  ): Promise<MessageEntry> {
+    if (options.model) {
+      const modelEntry = await this.repo.appendModelChange(slug, options.model.provider, options.model.modelId);
+      await this.publishSessionUpdate(slug, { type: "entry_appended", entry: modelEntry });
+    }
+    if (options.thinkingLevel) {
+      const thinkingEntry = await this.repo.appendThinkingLevelChange(slug, options.thinkingLevel);
+      await this.publishSessionUpdate(slug, { type: "entry_appended", entry: thinkingEntry });
+    }
     const userEntry = await this.repo.appendUserMessage(slug, content, attachments);
     await this.publishSessionUpdate(slug, { type: "entry_appended", entry: userEntry });
 

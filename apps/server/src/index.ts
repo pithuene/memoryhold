@@ -58,7 +58,10 @@ app.post("/api/sessions/:slug/attachments", async (c) => {
 app.post("/api/sessions/:slug/messages", async (c) => {
   const slug = c.req.param("slug");
   const body = (await c.req.json()) as SendMessageRequest;
-  const entry = await runner.enqueueUserMessage(slug, body.content, body.attachments ?? []);
+  const entry = await runner.enqueueUserMessage(slug, body.content, body.attachments ?? [], {
+    model: body.model,
+    thinkingLevel: body.thinkingLevel,
+  });
   return c.json({ ok: true, entry });
 });
 

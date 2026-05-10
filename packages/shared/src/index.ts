@@ -51,6 +51,11 @@ export interface CreateSessionRequest {
 export interface SendMessageRequest {
   content: string;
   attachments?: UploadedAttachmentRef[];
+  model?: {
+    provider: string;
+    modelId: string;
+  };
+  thinkingLevel?: string;
 }
 
 export interface UploadedAttachmentRef {

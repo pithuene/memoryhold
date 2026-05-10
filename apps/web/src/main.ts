@@ -16,6 +16,7 @@ class MemoryholdApp extends LitElement {
   @state() private providers: Array<{ id: string; models: Array<{ id: string; name: string }> }> = [];
   @state() private selectedProvider = "";
   @state() private selectedModel = "";
+  @state() private thinkingLevel = "off";
   private eventSource?: EventSource;
 
   static styles = css`
@@ -99,7 +100,12 @@ class MemoryholdApp extends LitElement {
     await fetch(`${API}/api/sessions/${this.active.slug}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, attachments }),
+      body: JSON.stringify({
+        content,
+        attachments,
+        model: this.selectedProvider && this.selectedModel ? { provider: this.selectedProvider, modelId: this.selectedModel } : undefined,
+        thinkingLevel: this.thinkingLevel,
+      }),
     });
   }
 
@@ -119,12 +125,20 @@ class MemoryholdApp extends LitElement {
           <select .value=${this.selectedModel} @change=${(e: Event) => this.selectedModel = (e.target as HTMLSelectElement).value}>
             ${this.providers.find((p) => p.id === this.selectedProvider)?.models.map((m) => html`<option value=${m.id}>${m.name || m.id}</option>`) ?? []}
           </select>
+          <select .value=${this.thinkingLevel} @change=${(e: Event) => this.thinkingLevel = (e.target as HTMLSelectElement).value}>
+            ${["off", "minimal", "low", "medium", "high"].map((level) => html`<option value=${level}>thinking: ${level}</option>`)}
+          </select>
           ${this.sessions.map((s) => html`<div class="session ${this.active?.slug === s.slug ? "active" : ""}" @click=${() => this.openSession(s)}>${s.title}<br /><small>${new Date(s.lastModified).toLocaleString()}</small></div>`)}
         </aside>
         <main>
           <div class="messages">
             ${this.active ? html`
-              ${this.entries.map((e: any) => e.type === "message" ? html`<div class="msg"><div class="role">${e.message.role}</div>${e.message.content}</div>` : "")}
+              ${this.entries.map((e: any) => {
+                if (e.type === "message") return html`<div class="msg"><div class="role">${e.message.role}</div>${e.message.content}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div>`;
+                if (e.type === "model_change") return html`<div class="msg"><div class="role">model changed</div>${e.provider}/${e.modelId}</div>`;
+                if (e.type === "thinking_level_change") return html`<div class="msg"><div class="role">thinking changed</div>${e.thinkingLevel}</div>`;
+                return "";
+              })}
               ${this.streamingContent ? html`<div class="msg"><div class="role">assistant · streaming</div>${this.streamingContent}</div>` : ""}
             ` : html`<p>Select or create a conversation.</p>`}
           </div>

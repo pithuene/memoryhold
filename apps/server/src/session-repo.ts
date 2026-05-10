@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, writeFile, appendFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { CreateSessionRequest, MessageEntry, SessionHeader, SessionMetadata, SessionTreeEntry, UploadedAttachmentRef } from "@memoryhold/shared";
+import type { CreateSessionRequest, MessageEntry, ModelChangeEntry, SessionHeader, SessionMetadata, SessionTreeEntry, ThinkingLevelChangeEntry, UploadedAttachmentRef } from "@memoryhold/shared";
 
 function slugify(input: string): string {
   return input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "untitled";
@@ -72,6 +72,33 @@ export class SessionRepo {
     return this.appendMessage(slug, "user", content, undefined, attachments);
   }
 
+  async appendModelChange(slug: string, provider: string, modelId: string): Promise<ModelChangeEntry> {
+    const { metadata } = await this.get(slug);
+    const entry: ModelChangeEntry = {
+      type: "model_change",
+      id: randomUUID().slice(0, 8),
+      parentId: metadata.currentLeafId,
+      timestamp: new Date().toISOString(),
+      provider,
+      modelId,
+    };
+    await this.appendEntryAndAdvance(slug, entry);
+    return entry;
+  }
+
+  async appendThinkingLevelChange(slug: string, thinkingLevel: string): Promise<ThinkingLevelChangeEntry> {
+    const { metadata } = await this.get(slug);
+    const entry: ThinkingLevelChangeEntry = {
+      type: "thinking_level_change",
+      id: randomUUID().slice(0, 8),
+      parentId: metadata.currentLeafId,
+      timestamp: new Date().toISOString(),
+      thinkingLevel,
+    };
+    await this.appendEntryAndAdvance(slug, entry);
+    return entry;
+  }
+
   async appendAssistantMessage(slug: string, content: string, parentId?: string | null): Promise<MessageEntry> {
     return this.appendMessage(slug, "assistant", content, parentId);
   }
@@ -96,6 +123,14 @@ export class SessionRepo {
     }
     await this.saveMetadata(metadata);
     return entry;
+  }
+
+  private async appendEntryAndAdvance(slug: string, entry: SessionTreeEntry): Promise<void> {
+    const { metadata } = await this.get(slug);
+    await appendFile(join(this.sessionDir(slug), "session.jsonl"), `${JSON.stringify(entry)}\n`);
+    metadata.currentLeafId = entry.id;
+    metadata.lastModified = entry.timestamp;
+    await this.saveMetadata(metadata);
   }
 
   async saveAttachment(slug: string, file: File): Promise<{ id: string; filename: string; mimeType: string; relativePath: string }> {
