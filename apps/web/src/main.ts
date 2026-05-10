@@ -156,10 +156,34 @@ class MemoryholdApp extends LitElement {
     void this.loadSessions();
     void this.loadProviders();
     void this.loadOAuthProviders();
+    window.addEventListener("popstate", this.handlePopState);
   }
+
+  override disconnectedCallback() {
+    window.removeEventListener("popstate", this.handlePopState);
+    this.eventSource?.close();
+    super.disconnectedCallback();
+  }
+
+  private handlePopState = () => {
+    void this.openSessionFromUrl(false);
+  };
 
   private async loadSessions() {
     this.sessions = await fetch(`${API}/api/sessions`).then((r) => r.json());
+    await this.openSessionFromUrl(false);
+  }
+
+  private sessionSlugFromUrl() {
+    const match = window.location.pathname.match(/^\/c\/([^/]+)\/?$/);
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  private async openSessionFromUrl(updateHistory = false) {
+    const slug = this.sessionSlugFromUrl();
+    if (!slug || this.active?.slug === slug) return;
+    const session = this.sessions.find((item) => item.slug === slug);
+    if (session) await this.openSession(session, updateHistory);
   }
 
   private async loadOAuthProviders() {
@@ -252,12 +276,13 @@ class MemoryholdApp extends LitElement {
     await this.openSession(metadata);
   }
 
-  private async openSession(session: SessionMetadata) {
+  private async openSession(session: SessionMetadata, updateHistory = true) {
     this.eventSource?.close();
     this.streamingContent = "";
     this.isStreaming = false;
     this.active = session;
     this.view = "chat";
+    if (updateHistory) window.history.pushState({}, "", `/c/${encodeURIComponent(session.slug)}`);
     const data = await fetch(`${API}/api/sessions/${session.slug}`).then((r) => r.json());
     this.entries = data.entries;
     const es = new EventSource(`${API}/api/sessions/${session.slug}/events`);
