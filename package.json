@@ -7,7 +7,8 @@
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
     "check": "pnpm -r check",
-    "screenshot": "node scripts/screenshot.mjs"
+    "screenshot": "node scripts/screenshot.mjs",
+    "screenshot:chatgpt-ref": "node scripts/chatgpt-reference.mjs"
   },
   "packageManager": "pnpm@9.15.0",
   "devDependencies": {
