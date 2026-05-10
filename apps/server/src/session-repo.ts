@@ -103,6 +103,30 @@ export class SessionRepo {
     return this.appendMessage(slug, "assistant", content, parentId);
   }
 
+  async appendRawMessage(slug: string, message: unknown): Promise<MessageEntry> {
+    const { metadata } = await this.get(slug);
+    const now = new Date().toISOString();
+    const entry: MessageEntry = {
+      type: "message",
+      id: randomUUID().slice(0, 8),
+      parentId: metadata.currentLeafId,
+      timestamp: now,
+      message,
+    };
+    await appendFile(join(this.sessionDir(slug), "session.jsonl"), `${JSON.stringify(entry)}\n`);
+    metadata.currentLeafId = entry.id;
+    metadata.lastModified = now;
+    metadata.messageCount += 1;
+    const anyMessage = message as any;
+    if (anyMessage?.role === "user") {
+      const text = typeof anyMessage.content === "string" ? anyMessage.content : Array.isArray(anyMessage.content) ? anyMessage.content.map((b: any) => b?.text ?? "").join("\n") : "";
+      metadata.preview = metadata.preview || text.slice(0, 500);
+      if (metadata.title === "New conversation") metadata.title = text.split(/\s+/).slice(0, 8).join(" ");
+    }
+    await this.saveMetadata(metadata);
+    return entry;
+  }
+
   private async appendMessage(slug: string, role: "user" | "assistant", content: string, parentId?: string | null, attachments: UploadedAttachmentRef[] = []): Promise<MessageEntry> {
     const { metadata } = await this.get(slug);
     const now = new Date().toISOString();
