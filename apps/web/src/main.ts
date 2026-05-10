@@ -431,7 +431,7 @@ class MemoryholdApp extends LitElement {
                   if (e.type === "model_change" || e.type === "thinking_level_change") return "";
                   return "";
                 })}
-                ${this.isStreaming || this.streamingContent ? html`<div class="msg assistant"><div class="avatar">M</div><div class="message-body"><div class="role">assistant · streaming</div><div class="bubble">${this.renderThinkingIndicator(this.streamingContent ? "Thinking" : "Thinking")}${this.streamingContent ? this.renderMarkdown(this.streamingContent) : ""}</div></div></div>` : ""}
+                ${this.isStreaming || this.streamingContent ? html`<div class="msg assistant"><div class="avatar">M</div><div class="message-body"><div class="role">assistant · streaming</div><div class="bubble">${this.streamingContent ? this.renderMarkdown(this.streamingContent) : this.renderThinkingIndicator("Thinking")}</div></div></div>` : ""}
               </div>` : html`<div class="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>`}
             </div>
             <form @submit=${this.send}>
