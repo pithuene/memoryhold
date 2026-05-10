@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import { getModels, getProviders, getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { SendMessageRequest } from "@memoryhold/shared";
@@ -20,6 +21,20 @@ const app = new Hono();
 app.use("*", cors());
 
 app.get("/api/health", (c) => c.json({ ok: true }));
+
+app.get("/api/providers", (c) => {
+  const providers = getProviders().map((provider) => ({
+    id: provider,
+    models: getModels(provider).map((model) => ({
+      id: model.id,
+      name: model.name,
+      provider: model.provider,
+      contextWindow: model.contextWindow,
+      supportedThinkingLevels: getSupportedThinkingLevels(model),
+    })),
+  }));
+  return c.json(providers);
+});
 
 app.get("/api/sessions", async (c) => c.json(await repo.list()));
 

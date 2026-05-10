@@ -9,10 +9,12 @@
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "0.74.0",
+    "@earendil-works/pi-ai": "0.74.0",
+    "@earendil-works/pi-web-ui": "0.74.0",
     "@memoryhold/shared": "workspace:*",
     "@vitejs/plugin-basic-ssl": "^1.2.0",
     "lit": "^3.3.0",
     "vite": "^6.3.4"
-  },
-  "devDependencies": {}
+  }
 }

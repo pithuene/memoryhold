@@ -13,6 +13,9 @@ class MemoryholdApp extends LitElement {
   @state() private streamingContent = "";
   @state() private isStreaming = false;
   @state() private files: File[] = [];
+  @state() private providers: Array<{ id: string; models: Array<{ id: string; name: string }> }> = [];
+  @state() private selectedProvider = "";
+  @state() private selectedModel = "";
   private eventSource?: EventSource;
 
   static styles = css`
@@ -34,10 +37,17 @@ class MemoryholdApp extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     void this.loadSessions();
+    void this.loadProviders();
   }
 
   private async loadSessions() {
     this.sessions = await fetch(`${API}/api/sessions`).then((r) => r.json());
+  }
+
+  private async loadProviders() {
+    this.providers = await fetch(`${API}/api/providers`).then((r) => r.json());
+    this.selectedProvider = this.providers[0]?.id ?? "";
+    this.selectedModel = this.providers[0]?.models[0]?.id ?? "";
   }
 
   private async newSession() {
@@ -99,6 +109,16 @@ class MemoryholdApp extends LitElement {
         <aside>
           <h2>Memoryhold</h2>
           <button @click=${this.newSession}>New conversation</button>
+          <h3>Model</h3>
+          <select .value=${this.selectedProvider} @change=${(e: Event) => {
+            this.selectedProvider = (e.target as HTMLSelectElement).value;
+            this.selectedModel = this.providers.find((p) => p.id === this.selectedProvider)?.models[0]?.id ?? "";
+          }}>
+            ${this.providers.map((p) => html`<option value=${p.id}>${p.id}</option>`)}
+          </select>
+          <select .value=${this.selectedModel} @change=${(e: Event) => this.selectedModel = (e.target as HTMLSelectElement).value}>
+            ${this.providers.find((p) => p.id === this.selectedProvider)?.models.map((m) => html`<option value=${m.id}>${m.name || m.id}</option>`) ?? []}
+          </select>
           ${this.sessions.map((s) => html`<div class="session ${this.active?.slug === s.slug ? "active" : ""}" @click=${() => this.openSession(s)}>${s.title}<br /><small>${new Date(s.lastModified).toLocaleString()}</small></div>`)}
         </aside>
         <main>
