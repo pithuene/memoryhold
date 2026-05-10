@@ -64,7 +64,13 @@ export class SessionRunner {
     const agent = new Agent({
       sessionId: metadata.id,
       streamFn: streamSimple,
-      getApiKey: (provider) => getEnvApiKey(provider as any),
+      getApiKey: (provider) => {
+        const key = getEnvApiKey(provider as any);
+        if (!key) {
+          throw new Error(`No credentials configured for provider '${provider}'. For now, set the provider API key in the server environment. OAuth UI is not implemented yet.`);
+        }
+        return key;
+      },
       initialState: {
         systemPrompt: "You are Memoryhold, a helpful assistant. Conversations are stored locally for the user.",
         model: getModel(modelRef.provider as any, modelRef.modelId as any),

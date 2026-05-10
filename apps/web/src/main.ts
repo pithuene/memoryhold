@@ -12,6 +12,7 @@ class MemoryholdApp extends LitElement {
   @state() private draft = "";
   @state() private streamingContent = "";
   @state() private isStreaming = false;
+  @state() private errorMessage = "";
   @state() private files: File[] = [];
   @state() private providers: Array<{ id: string; models: Array<{ id: string; name: string }> }> = [];
   @state() private selectedProvider = "";
@@ -20,19 +21,21 @@ class MemoryholdApp extends LitElement {
   private eventSource?: EventSource;
 
   static styles = css`
-    :host { display: block; height: 100vh; font-family: system-ui, sans-serif; color: #e5e7eb; background: #111827; }
-    .layout { display: grid; grid-template-columns: 280px 1fr; height: 100%; }
-    aside { border-right: 1px solid #374151; padding: 12px; overflow: auto; }
-    main { display: grid; grid-template-rows: 1fr auto; min-width: 0; }
+    :host { display: block; height: 100vh; max-height: 100vh; overflow: hidden; font-family: system-ui, sans-serif; color: #e5e7eb; background: #111827; }
+    .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); height: 100vh; overflow: hidden; }
+    aside { border-right: 1px solid #374151; padding: 12px; overflow: auto; min-height: 0; }
+    main { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; }
     button { background: #2563eb; color: white; border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
     .session { padding: 8px; border-radius: 8px; cursor: pointer; margin-top: 6px; }
     .session:hover, .session.active { background: #1f2937; }
-    .messages { padding: 24px; overflow: auto; }
+    .messages { padding: 24px; overflow-y: auto; overflow-x: hidden; min-height: 0; }
     .msg { max-width: 850px; margin: 0 auto 16px; white-space: pre-wrap; line-height: 1.5; }
     .role { color: #9ca3af; font-size: 12px; margin-bottom: 4px; }
     form { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 16px; border-top: 1px solid #374151; }
     textarea { min-height: 64px; resize: vertical; border-radius: 8px; border: 1px solid #374151; background: #030712; color: #e5e7eb; padding: 10px; }
     .composer-extra { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; color: #9ca3af; font-size: 13px; }
+    .error { margin: 8px 16px 0; padding: 10px; border-radius: 8px; background: #7f1d1d; color: #fecaca; white-space: pre-wrap; }
+    select { width: 100%; margin: 4px 0 8px; background: #030712; color: #e5e7eb; border: 1px solid #374151; border-radius: 6px; padding: 6px; }
   `;
 
   override connectedCallback() {
@@ -74,6 +77,7 @@ class MemoryholdApp extends LitElement {
       }
       if (event.type === "message_update") this.streamingContent = event.content;
       if (event.type === "stream_status") this.isStreaming = event.isStreaming;
+      if (event.type === "error") this.errorMessage = event.message;
       if (event.type === "session_updated") {
         this.active = event.metadata;
         void this.loadSessions();
@@ -112,7 +116,8 @@ class MemoryholdApp extends LitElement {
       attachments = uploaded.attachments;
     }
 
-    await fetch(`${API}/api/sessions/${this.active.slug}/messages`, {
+    this.errorMessage = "";
+    const response = await fetch(`${API}/api/sessions/${this.active.slug}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -122,6 +127,7 @@ class MemoryholdApp extends LitElement {
         thinkingLevel: this.thinkingLevel,
       }),
     });
+    if (!response.ok) this.errorMessage = await response.text();
   }
 
   override render() {
@@ -146,6 +152,7 @@ class MemoryholdApp extends LitElement {
           ${this.sessions.map((s) => html`<div class="session ${this.active?.slug === s.slug ? "active" : ""}" @click=${() => this.openSession(s)}>${s.title}<br /><small>${new Date(s.lastModified).toLocaleString()}</small></div>`)}
         </aside>
         <main>
+          ${this.errorMessage ? html`<div class="error">${this.errorMessage}</div>` : ""}
           <div class="messages">
             ${this.active ? html`
               ${this.entries.map((e: any) => {
