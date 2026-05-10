@@ -8,7 +8,7 @@ if (process.platform !== 'darwin') {
   process.exit(result.status ?? 0);
 }
 
-const sourceApp = join(dirname(dirname(electronPath)), 'Electron.app');
+const sourceApp = dirname(dirname(electronPath));
 const devApp = join(process.cwd(), 'tmp', 'Memoryhold.app');
 const plist = join(devApp, 'Contents', 'Info.plist');
 
