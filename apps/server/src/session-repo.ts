@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, writeFile, appendFile } from "node:fs/promises";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { CreateSessionRequest, MessageEntry, SessionHeader, SessionMetadata, SessionTreeEntry } from "@memoryhold/shared";
+import type { CreateSessionRequest, MessageEntry, SessionHeader, SessionMetadata, SessionTreeEntry, UploadedAttachmentRef } from "@memoryhold/shared";
 
 function slugify(input: string): string {
   return input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "untitled";
@@ -68,15 +68,15 @@ export class SessionRepo {
     return { metadata, entries };
   }
 
-  async appendUserMessage(slug: string, content: string): Promise<MessageEntry> {
-    return this.appendMessage(slug, "user", content);
+  async appendUserMessage(slug: string, content: string, attachments: UploadedAttachmentRef[] = []): Promise<MessageEntry> {
+    return this.appendMessage(slug, "user", content, undefined, attachments);
   }
 
   async appendAssistantMessage(slug: string, content: string, parentId?: string | null): Promise<MessageEntry> {
     return this.appendMessage(slug, "assistant", content, parentId);
   }
 
-  private async appendMessage(slug: string, role: "user" | "assistant", content: string, parentId?: string | null): Promise<MessageEntry> {
+  private async appendMessage(slug: string, role: "user" | "assistant", content: string, parentId?: string | null, attachments: UploadedAttachmentRef[] = []): Promise<MessageEntry> {
     const { metadata } = await this.get(slug);
     const now = new Date().toISOString();
     const entry: MessageEntry = {
@@ -84,7 +84,7 @@ export class SessionRepo {
       id: randomUUID().slice(0, 8),
       parentId: parentId === undefined ? metadata.currentLeafId : parentId,
       timestamp: now,
-      message: { role, content, timestamp: Date.now() },
+      message: { role, content, timestamp: Date.now(), ...(attachments.length ? { attachments } : {}) },
     };
     await appendFile(join(this.sessionDir(slug), "session.jsonl"), `${JSON.stringify(entry)}\n`);
     metadata.currentLeafId = entry.id;
@@ -96,6 +96,17 @@ export class SessionRepo {
     }
     await this.saveMetadata(metadata);
     return entry;
+  }
+
+  async saveAttachment(slug: string, file: File): Promise<{ id: string; filename: string; mimeType: string; relativePath: string }> {
+    const id = randomUUID();
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_") || `attachment${extname(file.name)}`;
+    const filename = `${id.slice(0, 8)}-${safeName}`;
+    const relativePath = `attachments/${filename}`;
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    await mkdir(join(this.sessionDir(slug), "attachments"), { recursive: true });
+    await writeFile(join(this.sessionDir(slug), relativePath), bytes);
+    return { id, filename: file.name, mimeType: file.type, relativePath };
   }
 
   async saveMetadata(metadata: SessionMetadata): Promise<void> {

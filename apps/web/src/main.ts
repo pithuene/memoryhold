@@ -12,6 +12,7 @@ class MemoryholdApp extends LitElement {
   @state() private draft = "";
   @state() private streamingContent = "";
   @state() private isStreaming = false;
+  @state() private files: File[] = [];
   private eventSource?: EventSource;
 
   static styles = css`
@@ -25,8 +26,9 @@ class MemoryholdApp extends LitElement {
     .messages { padding: 24px; overflow: auto; }
     .msg { max-width: 850px; margin: 0 auto 16px; white-space: pre-wrap; line-height: 1.5; }
     .role { color: #9ca3af; font-size: 12px; margin-bottom: 4px; }
-    form { display: flex; gap: 8px; padding: 16px; border-top: 1px solid #374151; }
-    textarea { flex: 1; min-height: 64px; resize: vertical; border-radius: 8px; border: 1px solid #374151; background: #030712; color: #e5e7eb; padding: 10px; }
+    form { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 16px; border-top: 1px solid #374151; }
+    textarea { min-height: 64px; resize: vertical; border-radius: 8px; border: 1px solid #374151; background: #030712; color: #e5e7eb; padding: 10px; }
+    .composer-extra { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; color: #9ca3af; font-size: 13px; }
   `;
 
   override connectedCallback() {
@@ -72,11 +74,22 @@ class MemoryholdApp extends LitElement {
     ev.preventDefault();
     if (!this.active || !this.draft.trim()) return;
     const content = this.draft;
+    const files = this.files;
     this.draft = "";
+    this.files = [];
+
+    let attachments = [];
+    if (files.length > 0) {
+      const form = new FormData();
+      for (const file of files) form.append("files", file);
+      const uploaded = await fetch(`${API}/api/sessions/${this.active.slug}/attachments`, { method: "POST", body: form }).then((r) => r.json());
+      attachments = uploaded.attachments;
+    }
+
     await fetch(`${API}/api/sessions/${this.active.slug}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, attachments }),
     });
   }
 
@@ -98,6 +111,10 @@ class MemoryholdApp extends LitElement {
           <form @submit=${this.send}>
             <textarea .value=${this.draft} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
             <button>${this.isStreaming ? "Queue" : "Send"}</button>
+            <div class="composer-extra">
+              <input type="file" multiple @change=${(e: Event) => this.files = Array.from((e.target as HTMLInputElement).files ?? [])} />
+              ${this.files.length ? html`<span>${this.files.length} file(s) selected</span>` : ""}
+            </div>
           </form>
         </main>
       </div>

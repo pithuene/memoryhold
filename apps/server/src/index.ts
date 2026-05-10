@@ -31,10 +31,19 @@ app.post("/api/sessions", async (c) => {
 
 app.get("/api/sessions/:slug", async (c) => c.json(await repo.get(c.req.param("slug"))));
 
+app.post("/api/sessions/:slug/attachments", async (c) => {
+  const slug = c.req.param("slug");
+  const form = await c.req.formData();
+  const files = form.getAll("files").filter((value): value is File => value instanceof File);
+  const attachments = [];
+  for (const file of files) attachments.push(await repo.saveAttachment(slug, file));
+  return c.json({ attachments });
+});
+
 app.post("/api/sessions/:slug/messages", async (c) => {
   const slug = c.req.param("slug");
   const body = (await c.req.json()) as SendMessageRequest;
-  const entry = await runner.enqueueUserMessage(slug, body.content);
+  const entry = await runner.enqueueUserMessage(slug, body.content, body.attachments ?? []);
   return c.json({ ok: true, entry });
 });
 

@@ -1,10 +1,11 @@
-import type { MessageEntry, ServerEvent } from "@memoryhold/shared";
+import type { MessageEntry, ServerEvent, UploadedAttachmentRef } from "@memoryhold/shared";
 import { EventHub } from "./events.js";
 import { SessionRepo } from "./session-repo.js";
 
 interface QueuedPrompt {
   parentEntry: MessageEntry;
   content: string;
+  attachments: UploadedAttachmentRef[];
 }
 
 interface RuntimeState {
@@ -22,12 +23,12 @@ export class SessionRunner {
     private readonly events: EventHub,
   ) {}
 
-  async enqueueUserMessage(slug: string, content: string): Promise<MessageEntry> {
-    const userEntry = await this.repo.appendUserMessage(slug, content);
+  async enqueueUserMessage(slug: string, content: string, attachments: UploadedAttachmentRef[] = []): Promise<MessageEntry> {
+    const userEntry = await this.repo.appendUserMessage(slug, content, attachments);
     await this.publishSessionUpdate(slug, { type: "entry_appended", entry: userEntry });
 
     const state = this.getState(slug);
-    state.queue.push({ parentEntry: userEntry, content });
+    state.queue.push({ parentEntry: userEntry, content, attachments });
     if (!state.isStreaming) void this.drain(slug);
     return userEntry;
   }
@@ -62,7 +63,8 @@ export class SessionRunner {
 
   private async generateMockAssistantResponse(slug: string, prompt: QueuedPrompt): Promise<void> {
     // Temporary stand-in for backend pi Agent execution. Keeps the UI/storage/queue/SSE path functional.
-    const response = `Mock assistant response. Backend agent integration is next.\n\nYou said: ${prompt.content}`;
+    const attachmentNote = prompt.attachments.length ? `\n\nReceived ${prompt.attachments.length} attachment(s): ${prompt.attachments.map((a) => a.relativePath).join(", ")}` : "";
+    const response = `Mock assistant response. Backend agent integration is next.\n\nYou said: ${prompt.content}${attachmentNote}`;
     let partial = "";
     for (const token of response.split(/(\s+)/)) {
       partial += token;
