@@ -27,17 +27,17 @@ class MemoryholdApp extends LitElement {
   static styles = css`
     :host { display:block; height:100vh; max-height:100vh; overflow:hidden; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#e5e7eb; background:#0b1020; }
     * { box-sizing: border-box; }
-    .layout { display:grid; grid-template-columns: 320px minmax(0, 1fr); height:100vh; overflow:hidden; background: radial-gradient(circle at top left, #172554 0, #0b1020 30%, #080b14 100%); }
-    aside { display:flex; flex-direction:column; gap:16px; border-right:1px solid rgba(148,163,184,.18); padding:18px; overflow:auto; min-height:0; background:rgba(8,13,25,.86); backdrop-filter: blur(18px); }
+    .layout { display:grid; grid-template-columns: 312px minmax(0, 1fr); height:100vh; overflow:hidden; background: radial-gradient(circle at top left, #172554 0, #0b1020 30%, #080b14 100%); }
+    aside { display:flex; flex-direction:column; gap:16px; border-right:1px solid rgba(148,163,184,.18); padding:18px; overflow:auto; min-height:0; background:linear-gradient(180deg, rgba(10,16,31,.96), rgba(5,10,20,.96)); backdrop-filter: blur(18px); }
     main { display:grid; grid-template-rows:auto minmax(0, 1fr) auto; min-width:0; min-height:0; overflow:hidden; }
     .brand { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     h2 { margin:0; font-size:20px; letter-spacing:-.02em; }
     h3 { margin:0 0 8px; color:#94a3b8; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
     .panel { padding:12px; border:1px solid rgba(148,163,184,.14); border-radius:16px; background:rgba(15,23,42,.55); }
-    button { background:#2563eb; color:white; border:0; border-radius:12px; padding:10px 12px; cursor:pointer; font-weight:650; transition:.15s ease; }
+    button { background:#2563eb; color:white; border:0; border-radius:12px; padding:10px 12px; cursor:pointer; font-weight:650; transition:.15s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,.12); }
     button:hover { filter:brightness(1.12); transform:translateY(-1px); }
     button.secondary { background:#1e293b; color:#cbd5e1; }
-    button.success { background:#047857; }
+    button.success { background:linear-gradient(135deg, #059669, #047857); }
     .new-btn { width:100%; }
     .session-list { display:flex; flex-direction:column; gap:6px; }
     .session { padding:11px 12px; border:1px solid transparent; border-radius:13px; cursor:pointer; color:#cbd5e1; }
@@ -49,17 +49,24 @@ class MemoryholdApp extends LitElement {
     .chat-title { min-width:0; }
     .chat-title strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .status-pill { border:1px solid rgba(148,163,184,.2); border-radius:999px; padding:6px 10px; color:#94a3b8; font-size:12px; background:rgba(15,23,42,.7); }
-    .messages { padding:32px 28px; overflow-y:auto; overflow-x:hidden; min-height:0; scroll-behavior:smooth; }
+    .messages { padding:34px 28px; overflow-y:auto; overflow-x:hidden; min-height:0; scroll-behavior:smooth; }
+    .thread { max-width:940px; margin:0 auto; }
     .empty { max-width:680px; margin:15vh auto 0; text-align:center; color:#94a3b8; }
     .empty h1 { color:white; margin:0 0 8px; font-size:34px; letter-spacing:-.04em; }
-    .msg { max-width:880px; margin:0 auto 18px; white-space:pre-wrap; line-height:1.65; font-size:15px; }
-    .bubble { padding:16px 18px; border-radius:18px; border:1px solid rgba(148,163,184,.14); background:rgba(15,23,42,.72); box-shadow:0 10px 30px rgba(0,0,0,.12); }
-    .msg.user .bubble { margin-left:auto; max-width:78%; background:#2563eb; border-color:rgba(147,197,253,.35); color:white; }
-    .msg.assistant .bubble { background:rgba(15,23,42,.72); }
-    .msg.error .bubble { background:rgba(127,29,29,.35); border-color:rgba(248,113,113,.35); color:#fecaca; }
-    .role { color:#94a3b8; font-size:12px; font-weight:700; margin:0 0 6px; text-transform:capitalize; }
-    .timeline { max-width:880px; margin:0 auto 14px; color:#64748b; font-size:12px; display:flex; align-items:center; gap:10px; }
-    .timeline:before, .timeline:after { content:""; height:1px; background:rgba(148,163,184,.15); flex:1; }
+    .msg { display:grid; grid-template-columns:34px minmax(0, 1fr); gap:12px; margin:0 0 22px; white-space:pre-wrap; line-height:1.65; font-size:15px; }
+    .msg.user { grid-template-columns:minmax(0, 1fr) 34px; }
+    .avatar { width:34px; height:34px; border-radius:12px; display:grid; place-items:center; color:white; font-size:13px; font-weight:800; background:linear-gradient(135deg,#334155,#0f172a); border:1px solid rgba(148,163,184,.22); box-shadow:0 8px 24px rgba(0,0,0,.18); }
+    .msg.user .avatar { grid-column:2; background:linear-gradient(135deg,#60a5fa,#2563eb); }
+    .msg.user .message-body { grid-column:1; grid-row:1; display:flex; flex-direction:column; align-items:flex-end; }
+    .bubble { width:fit-content; max-width:min(780px, 100%); padding:15px 17px; border-radius:18px; border:1px solid rgba(148,163,184,.16); background:linear-gradient(180deg, rgba(17,24,39,.92), rgba(15,23,42,.92)); box-shadow:0 12px 32px rgba(0,0,0,.16); }
+    .msg.user .bubble { max-width:min(700px, 86%); background:linear-gradient(135deg,#3478f6,#235de8); border-color:rgba(147,197,253,.38); color:white; }
+    .msg.assistant .bubble { background:linear-gradient(180deg, rgba(17,24,39,.88), rgba(12,18,33,.9)); }
+    .msg.error .bubble { background:linear-gradient(180deg, rgba(127,29,29,.42), rgba(88,28,28,.38)); border-color:rgba(248,113,113,.38); color:#fecaca; }
+    .role { color:#94a3b8; font-size:12px; font-weight:750; margin:0 0 6px; text-transform:capitalize; letter-spacing:.02em; }
+    .msg.user .role { color:#93c5fd; }
+    .timeline { max-width:940px; margin:0 auto 16px; color:#64748b; font-size:12px; display:flex; align-items:center; justify-content:center; gap:10px; }
+    .timeline span { padding:4px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.12); background:rgba(15,23,42,.5); }
+    .timeline:before, .timeline:after { content:""; height:1px; background:rgba(148,163,184,.10); flex:1; }
     form { padding:18px 28px 22px; border-top:1px solid rgba(148,163,184,.14); background:linear-gradient(to top, rgba(8,13,25,.96), rgba(8,13,25,.82)); }
     .composer { max-width:920px; margin:0 auto; display:grid; grid-template-columns:1fr auto; gap:8px; padding:8px; border:1px solid rgba(148,163,184,.22); border-radius:20px; background:rgba(2,6,23,.82); box-shadow:0 18px 60px rgba(0,0,0,.25); }
     textarea { min-height:52px; max-height:180px; resize:vertical; border:0; outline:0; background:transparent; color:#e5e7eb; padding:10px 12px; font:inherit; line-height:1.45; }
@@ -70,7 +77,7 @@ class MemoryholdApp extends LitElement {
     .error { margin:12px 28px 0; padding:12px 14px; border:1px solid rgba(248,113,113,.35); border-radius:12px; background:rgba(127,29,29,.35); color:#fecaca; white-space:pre-wrap; }
     select, .oauth-textarea { width:100%; margin:4px 0 8px; background:#020617; color:#e5e7eb; border:1px solid rgba(148,163,184,.22); border-radius:10px; padding:9px; }
     .oauth-buttons { display:grid; gap:8px; }
-    .oauth-buttons button { overflow:hidden; text-overflow:ellipsis; }
+    .oauth-buttons button { overflow:hidden; text-wrap:balance; line-height:1.15; min-height:42px; }
   `;
 
   override connectedCallback() {
@@ -262,19 +269,21 @@ class MemoryholdApp extends LitElement {
           </header>
           ${this.errorMessage ? html`<div class="error">${this.errorMessage}</div>` : ""}
           <div class="messages">
-            ${this.active ? html`
+            ${this.active ? html`<div class="thread">
               ${this.entries.map((e: any) => {
                 if (e.type === "message") {
                   const role = e.message.role === "toolResult" ? "tool" : e.message.role;
                   const classes = `msg ${role} ${e.message.stopReason === "error" ? "error" : ""}`;
-                  return html`<div class=${classes}><div class="role">${role}${e.message.stopReason === "error" ? " · error" : ""}</div><div class="bubble">${this.renderMessage(e.message)}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div></div>`;
+                  const label = `${role}${e.message.stopReason === "error" ? " · error" : ""}`;
+                  const avatar = role === "user" ? "U" : role === "tool" ? "T" : "M";
+                  return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${this.renderMessage(e.message)}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div></div></div>`;
                 }
-                if (e.type === "model_change") return html`<div class="timeline">model: ${e.provider}/${e.modelId}</div>`;
-                if (e.type === "thinking_level_change") return html`<div class="timeline">thinking: ${e.thinkingLevel}</div>`;
+                if (e.type === "model_change") return html`<div class="timeline"><span>model: ${e.provider}/${e.modelId}</span></div>`;
+                if (e.type === "thinking_level_change") return html`<div class="timeline"><span>thinking: ${e.thinkingLevel}</span></div>`;
                 return "";
               })}
-              ${this.streamingContent ? html`<div class="msg assistant"><div class="role">assistant · streaming</div><div class="bubble">${this.streamingContent}</div></div>` : ""}
-            ` : html`<div class="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>`}
+              ${this.streamingContent ? html`<div class="msg assistant"><div class="avatar">M</div><div class="message-body"><div class="role">assistant · streaming</div><div class="bubble">${this.streamingContent}</div></div></div>` : ""}
+            </div>` : html`<div class="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>`}
           </div>
           <form @submit=${this.send}>
             <div class="composer">
