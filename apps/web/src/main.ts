@@ -27,7 +27,7 @@ class MemoryholdApp extends LitElement {
   static styles = css`
     :host { display:block; height:100vh; max-height:100vh; overflow:hidden; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#e5e7eb; background:#0b1020; }
     * { box-sizing: border-box; }
-    .layout { display:grid; grid-template-columns: 320px minmax(0, 1fr); height:100vh; overflow:hidden; background: radial-gradient(circle at top left, #172554 0, #0b1020 34%, #080b14 100%); }
+    .layout { display:grid; grid-template-columns: 320px minmax(0, 1fr); height:100vh; overflow:hidden; background: radial-gradient(circle at top left, #172554 0, #0b1020 30%, #080b14 100%); }
     aside { display:flex; flex-direction:column; gap:16px; border-right:1px solid rgba(148,163,184,.18); padding:18px; overflow:auto; min-height:0; background:rgba(8,13,25,.86); backdrop-filter: blur(18px); }
     main { display:grid; grid-template-rows:auto minmax(0, 1fr) auto; min-width:0; min-height:0; overflow:hidden; }
     .brand { display:flex; align-items:center; justify-content:space-between; gap:12px; }
@@ -50,7 +50,7 @@ class MemoryholdApp extends LitElement {
     .chat-title strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .status-pill { border:1px solid rgba(148,163,184,.2); border-radius:999px; padding:6px 10px; color:#94a3b8; font-size:12px; background:rgba(15,23,42,.7); }
     .messages { padding:32px 28px; overflow-y:auto; overflow-x:hidden; min-height:0; scroll-behavior:smooth; }
-    .empty { max-width:680px; margin:18vh auto 0; text-align:center; color:#94a3b8; }
+    .empty { max-width:680px; margin:15vh auto 0; text-align:center; color:#94a3b8; }
     .empty h1 { color:white; margin:0 0 8px; font-size:34px; letter-spacing:-.04em; }
     .msg { max-width:880px; margin:0 auto 18px; white-space:pre-wrap; line-height:1.65; font-size:15px; }
     .bubble { padding:16px 18px; border-radius:18px; border:1px solid rgba(148,163,184,.14); background:rgba(15,23,42,.72); box-shadow:0 10px 30px rgba(0,0,0,.12); }
@@ -61,13 +61,16 @@ class MemoryholdApp extends LitElement {
     .timeline { max-width:880px; margin:0 auto 14px; color:#64748b; font-size:12px; display:flex; align-items:center; gap:10px; }
     .timeline:before, .timeline:after { content:""; height:1px; background:rgba(148,163,184,.15); flex:1; }
     form { padding:18px 28px 22px; border-top:1px solid rgba(148,163,184,.14); background:linear-gradient(to top, rgba(8,13,25,.96), rgba(8,13,25,.82)); }
-    .composer { max-width:920px; margin:0 auto; display:grid; grid-template-columns:1fr auto; gap:10px; padding:10px; border:1px solid rgba(148,163,184,.22); border-radius:20px; background:rgba(2,6,23,.82); box-shadow:0 18px 60px rgba(0,0,0,.25); }
-    textarea { min-height:58px; max-height:180px; resize:vertical; border:0; outline:0; background:transparent; color:#e5e7eb; padding:10px 12px; font:inherit; line-height:1.45; }
+    .composer { max-width:920px; margin:0 auto; display:grid; grid-template-columns:1fr auto; gap:8px; padding:8px; border:1px solid rgba(148,163,184,.22); border-radius:20px; background:rgba(2,6,23,.82); box-shadow:0 18px 60px rgba(0,0,0,.25); }
+    textarea { min-height:52px; max-height:180px; resize:vertical; border:0; outline:0; background:transparent; color:#e5e7eb; padding:10px 12px; font:inherit; line-height:1.45; }
     .send-btn { align-self:end; min-width:84px; border-radius:14px; }
     .composer-extra { grid-column:1 / -1; display:flex; align-items:center; gap:12px; padding:0 8px 4px; color:#94a3b8; font-size:13px; }
+    input[type="file"] { color:#94a3b8; font-size:12px; }
+    input[type="file"]::file-selector-button { border:0; border-radius:9px; padding:7px 10px; margin-right:10px; background:#1e293b; color:#cbd5e1; font-weight:650; }
     .error { margin:12px 28px 0; padding:12px 14px; border:1px solid rgba(248,113,113,.35); border-radius:12px; background:rgba(127,29,29,.35); color:#fecaca; white-space:pre-wrap; }
     select, .oauth-textarea { width:100%; margin:4px 0 8px; background:#020617; color:#e5e7eb; border:1px solid rgba(148,163,184,.22); border-radius:10px; padding:9px; }
     .oauth-buttons { display:grid; gap:8px; }
+    .oauth-buttons button { overflow:hidden; text-overflow:ellipsis; }
   `;
 
   override connectedCallback() {
@@ -236,13 +239,13 @@ class MemoryholdApp extends LitElement {
             this.selectedProvider = (e.target as HTMLSelectElement).value;
             this.selectedModel = this.providers.find((p) => p.id === this.selectedProvider)?.models[0]?.id ?? "";
           }}>
-            ${this.providers.map((p) => html`<option value=${p.id}>${p.id}</option>`)}
+            ${this.providers.map((p) => html`<option value=${p.id} ?selected=${p.id === this.selectedProvider}>${p.id}</option>`)}
           </select>
           <select .value=${this.selectedModel} @change=${(e: Event) => this.selectedModel = (e.target as HTMLSelectElement).value}>
-            ${this.providers.find((p) => p.id === this.selectedProvider)?.models.map((m) => html`<option value=${m.id}>${m.name || m.id}</option>`) ?? []}
+            ${this.providers.find((p) => p.id === this.selectedProvider)?.models.map((m) => html`<option value=${m.id} ?selected=${m.id === this.selectedModel}>${m.name || m.id}</option>`) ?? []}
           </select>
           <select .value=${this.thinkingLevel} @change=${(e: Event) => this.thinkingLevel = (e.target as HTMLSelectElement).value}>
-            ${["off", "minimal", "low", "medium", "high"].map((level) => html`<option value=${level}>thinking: ${level}</option>`)}
+            ${["off", "minimal", "low", "medium", "high"].map((level) => html`<option value=${level} ?selected=${level === this.thinkingLevel}>thinking: ${level}</option>`) }
           </select>
           </section>
           <section>
