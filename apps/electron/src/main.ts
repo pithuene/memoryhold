@@ -48,8 +48,11 @@ async function pickAndSwitchConversationsDir() {
   writeConfig({ conversationsDir: selected });
   await restartServer(selected);
   if (mainWindow) {
-    if (isDev) await mainWindow.loadURL(webUrl);
-    else await mainWindow.loadFile(join(app.getAppPath(), "../web/index.html"));
+    if (isDev) {
+      const url = new URL(webUrl);
+      url.searchParams.set("memoryholdElectron", "1");
+      await mainWindow.loadURL(url.toString());
+    } else await mainWindow.loadFile(join(app.getAppPath(), "../web/index.html"), { query: { memoryholdElectron: "1" } });
   }
 }
 
@@ -145,8 +148,9 @@ async function createWindow() {
     minHeight: 700,
     title: "Memoryhold",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
-    trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 16 } : undefined,
+    trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 18 } : undefined,
     webPreferences: {
+      additionalArguments: ["--memoryhold-electron"],
       nodeIntegration: false,
       contextIsolation: true,
     },
@@ -158,9 +162,11 @@ async function createWindow() {
   });
 
   if (isDev) {
-    await mainWindow.loadURL(webUrl);
+    const url = new URL(webUrl);
+    url.searchParams.set("memoryholdElectron", "1");
+    await mainWindow.loadURL(url.toString());
   } else {
-    await mainWindow.loadFile(join(app.getAppPath(), "../web/index.html"));
+    await mainWindow.loadFile(join(app.getAppPath(), "../web/index.html"), { query: { memoryholdElectron: "1" } });
   }
 }
 

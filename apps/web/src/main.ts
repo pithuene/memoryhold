@@ -43,6 +43,7 @@ class MemoryholdApp extends LitElement {
     .layout { display:grid; grid-template-columns:260px minmax(0,1fr); height:100vh; overflow:hidden; background:#fff; }
     .layout.sidebar-collapsed { grid-template-columns:0 minmax(0,1fr); }
     aside { display:flex; flex-direction:column; gap:4px; min-height:0; overflow:auto; padding:12px 8px 0; background:#f9f9f9; border-right:1px solid #e5e5e5; }
+    :host(.electron) aside { padding-top:54px; }
     .layout.sidebar-collapsed aside { padding:0; border-right:0; overflow:hidden; }
     main { display:grid; grid-template-rows:auto minmax(0,1fr) auto; min-width:0; min-height:0; overflow:hidden; background:#fff; }
     .brand { display:flex; align-items:center; justify-content:space-between; height:40px; padding:0 8px 8px; }
@@ -158,6 +159,7 @@ class MemoryholdApp extends LitElement {
   `]
   override connectedCallback() {
     super.connectedCallback();
+    if (window.location.search.includes("memoryholdElectron=1") || navigator.userAgent.includes("Electron")) this.classList.add("electron");
     void this.loadSessions();
     void this.loadProviders();
     void this.loadOAuthProviders();
