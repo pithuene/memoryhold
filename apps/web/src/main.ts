@@ -81,6 +81,21 @@ class MemoryholdApp extends LitElement {
     };
   }
 
+  private renderContent(content: unknown) {
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      return content.map((block: any) => {
+        if (typeof block === "string") return block;
+        if (block?.type === "text") return block.text ?? "";
+        if (block?.type === "thinking") return `Thinking:\n${block.thinking ?? ""}`;
+        if (block?.type === "toolCall") return `[tool call: ${block.name}]`;
+        if (block?.type === "image") return `[image]`;
+        return JSON.stringify(block);
+      }).join("\n");
+    }
+    return content == null ? "" : JSON.stringify(content, null, 2);
+  }
+
   private async send(ev: Event) {
     ev.preventDefault();
     if (!this.active || !this.draft.trim()) return;
@@ -134,7 +149,7 @@ class MemoryholdApp extends LitElement {
           <div class="messages">
             ${this.active ? html`
               ${this.entries.map((e: any) => {
-                if (e.type === "message") return html`<div class="msg"><div class="role">${e.message.role}</div>${e.message.content}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div>`;
+                if (e.type === "message") return html`<div class="msg"><div class="role">${e.message.role}</div>${this.renderContent(e.message.content)}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div>`;
                 if (e.type === "model_change") return html`<div class="msg"><div class="role">model changed</div>${e.provider}/${e.modelId}</div>`;
                 if (e.type === "thinking_level_change") return html`<div class="msg"><div class="role">thinking changed</div>${e.thinkingLevel}</div>`;
                 return "";
