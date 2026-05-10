@@ -106,14 +106,18 @@ class MemoryholdApp extends LitElement {
     .file-label { display:grid; place-items:center; width:38px; height:38px; border-radius:999px; border:1px solid #e3e3e3; background:#fff; color:#111; font-size:0; cursor:pointer; }
     .file-label::before { content:"+"; font-size:24px; line-height:1; }
     .composer-extra span { display:none; }
-    .selected-files { max-width:768px; margin:0 auto 8px; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
-    .selected-file { max-width:220px; padding:7px 10px; border:1px solid #dedede; border-radius:12px; background:#fff; color:#555; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .selected-files { max-width:768px; margin:0 auto -1px; display:flex; flex-wrap:nowrap; gap:8px; padding:10px 12px 0; border:1px solid #d9d9d9; border-bottom:0; border-radius:24px 24px 0 0; background:#fff; box-shadow:0 8px 28px rgba(0,0,0,.08); overflow:hidden; }
+    .selected-file { position:relative; display:grid; grid-template-columns:38px minmax(0,1fr); gap:9px; align-items:center; min-width:170px; max-width:270px; padding:7px 34px 7px 8px; border:1px solid #dedede; border-radius:12px; background:#fff; color:#111; }
+    .selected-file-thumb, .attachment-icon { width:38px; height:38px; border-radius:8px; display:grid; place-items:center; object-fit:cover; background:#f0f0f0; font-size:11px; font-weight:700; color:#555; overflow:hidden; }
+    .selected-file-name, .attachment-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; line-height:1.2; font-weight:600; }
+    .selected-file-meta, .attachment-meta { color:#777; font-size:12px; line-height:1.2; margin-top:2px; }
+    .remove-file { position:absolute; top:-7px; right:-7px; width:22px; height:22px; padding:0; border-radius:999px; display:grid; place-items:center; background:#111; color:#fff; font-size:14px; line-height:1; }
+    .remove-file:hover { background:#333; }
+    .composer.with-files { border-top-left-radius:0; border-top-right-radius:0; }
     .attachment-list { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 8px; }
-    .attachment-chip { display:grid; grid-template-columns:28px minmax(0,1fr); gap:8px; align-items:center; max-width:280px; padding:8px 10px; border:1px solid #dedede; border-radius:14px; background:#fff; color:#111; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+    .attachment-chip { display:grid; grid-template-columns:38px minmax(0,1fr); gap:9px; align-items:center; max-width:300px; padding:7px 10px 7px 8px; border:1px solid #dedede; border-radius:12px; background:#fff; color:#111; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+    .attachment-image { width:38px; height:38px; border-radius:8px; object-fit:cover; background:#eee; }
     .msg.user .attachment-chip { background:#fff; }
-    .attachment-icon { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; background:#f0f0f0; font-size:15px; }
-    .attachment-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; line-height:1.2; }
-    .attachment-meta { color:#777; font-size:11px; line-height:1.2; }
     .thinking-row { display:flex; align-items:center; gap:8px; margin:0 0 14px; color:#8a8a8a; font-size:16px; }
     .thinking-caret { color:#aaa; font-size:18px; }
     .thinking-dots { display:inline-flex; gap:3px; margin-left:1px; }
@@ -349,21 +353,43 @@ class MemoryholdApp extends LitElement {
     if (!attachments.length) return "";
     return html`<div class="attachment-list">
       ${attachments.map((attachment) => html`<div class="attachment-chip" title=${attachment.relativePath ?? attachment.filename ?? "Attachment"}>
-        <div class="attachment-icon">${this.attachmentIcon(attachment.filename)}</div>
+        ${this.isImageAttachment(attachment) && this.active ? html`<img class="attachment-image" src=${`${API}/api/sessions/${this.active.slug}/${attachment.relativePath}`} />` : html`<div class="attachment-icon">${this.attachmentIcon(attachment.filename)}</div>`}
         <div>
           <div class="attachment-name">${attachment.filename ?? "Attachment"}</div>
-          <div class="attachment-meta">${attachment.mimeType || "Attached file"}</div>
+          <div class="attachment-meta">${this.attachmentKind(attachment.filename, attachment.mimeType)}</div>
         </div>
       </div>`)}
     </div>`;
   }
 
+  private renderSelectedFiles() {
+    if (!this.files.length) return "";
+    return html`<div class="selected-files">${this.files.map((file, index) => html`<div class="selected-file" title=${file.name}>
+      ${file.type.startsWith("image/") ? html`<img class="selected-file-thumb" src=${URL.createObjectURL(file)} />` : html`<div class="selected-file-thumb">${this.attachmentIcon(file.name)}</div>`}
+      <div><div class="selected-file-name">${file.name}</div><div class="selected-file-meta">${this.attachmentKind(file.name, file.type)}</div></div>
+      <button type="button" class="remove-file" title="Remove file" @click=${() => this.files = this.files.filter((_, i) => i !== index)}>×</button>
+    </div>`)}</div>`;
+  }
+
+  private isImageAttachment(attachment: any) {
+    return attachment?.mimeType?.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg)$/i.test(attachment?.filename ?? "");
+  }
+
+  private attachmentKind(filename = "", mimeType = "") {
+    const lower = filename.toLowerCase();
+    if (mimeType === "application/pdf" || lower.endsWith(".pdf")) return "PDF";
+    if (mimeType.startsWith("image/") || lower.match(/\.(png|jpe?g|gif|webp|svg)$/)) return "Image";
+    if (mimeType.startsWith("text/") || lower.match(/\.(txt|md|csv|log)$/)) return "Document";
+    if (lower.match(/\.(ts|tsx|js|jsx|py|rs|go|java|c|cpp|h|css|html|json)$/)) return "Code";
+    return "File";
+  }
+
   private attachmentIcon(filename = "") {
     const lower = filename.toLowerCase();
     if (lower.endsWith(".pdf")) return "PDF";
-    if (lower.match(/\.(png|jpe?g|gif|webp|svg)$/)) return "▧";
+    if (lower.match(/\.(png|jpe?g|gif|webp|svg)$/)) return "IMG";
     if (lower.match(/\.(ts|tsx|js|jsx|py|rs|go|java|c|cpp|h|css|html|json|md)$/)) return "{}";
-    return "↥";
+    return "DOC";
   }
 
   private renderThinkingIndicator(label = "Thinking") {
@@ -549,8 +575,8 @@ class MemoryholdApp extends LitElement {
               </div>` : html`<div class="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>`}
             </div>
             <form @submit=${this.send}>
-              ${this.files.length ? html`<div class="selected-files">${this.files.map((file) => html`<div class="selected-file">${file.name}</div>`)}</div>` : ""}
-              <div class="composer">
+              ${this.renderSelectedFiles()}
+              <div class="composer ${this.files.length ? "with-files" : ""}">
                 <textarea .value=${this.draft} @keydown=${this.handleComposerKeydown} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
                 <button class="send-btn" title=${this.isStreaming ? "Queue message" : "Send message"}>${this.isStreaming ? "Queue" : "Send"}</button>
                 <div class="composer-extra">

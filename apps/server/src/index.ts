@@ -59,6 +59,11 @@ app.post("/api/sessions/:slug/attachments", async (c) => {
   return c.json({ attachments });
 });
 
+app.get("/api/sessions/:slug/attachments/:filename", async (c) => {
+  const bytes = await repo.readAttachment(c.req.param("slug"), `attachments/${c.req.param("filename")}`);
+  return new Response(new Uint8Array(bytes));
+});
+
 app.post("/api/sessions/:slug/messages", async (c) => {
   const slug = c.req.param("slug");
   const body = (await c.req.json()) as SendMessageRequest;
