@@ -36,21 +36,26 @@ class MemoryholdApp extends LitElement {
     :host { display:block; height:100vh; max-height:100vh; overflow:hidden; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#0d0d0d; background:#fff; }
     * { box-sizing:border-box; }
     .layout { display:grid; grid-template-columns:260px minmax(0,1fr); height:100vh; overflow:hidden; background:#fff; }
-    aside { display:flex; flex-direction:column; gap:12px; min-height:0; overflow:auto; padding:12px 8px; background:#f9f9f9; border-right:1px solid #e5e5e5; }
+    aside { display:flex; flex-direction:column; gap:4px; min-height:0; overflow:auto; padding:12px 8px 0; background:#f9f9f9; border-right:1px solid #e5e5e5; }
     main { display:grid; grid-template-rows:auto minmax(0,1fr) auto; min-width:0; min-height:0; overflow:hidden; background:#fff; }
-    .brand { display:flex; align-items:center; justify-content:space-between; height:36px; padding:0 8px; }
+    .brand { display:flex; align-items:center; justify-content:space-between; height:40px; padding:0 8px 8px; }
     h2 { margin:0; font-size:18px; font-weight:700; letter-spacing:-.02em; }
-    h3 { margin:16px 8px 6px; color:#6b6b6b; font-size:13px; font-weight:700; }
+    h3 { margin:20px 8px 6px; color:#111; font-size:13px; font-weight:700; }
     button { border:0; border-radius:10px; padding:9px 10px; background:#0d0d0d; color:white; cursor:pointer; font-weight:600; font-size:14px; }
     button:hover { background:#2f2f2f; }
     button.secondary { background:#f4f4f4; color:#0d0d0d; border:1px solid #e3e3e3; }
     button.success { background:#e7f8ef; color:#087443; border:1px solid #bbe8cf; }
-    .new-btn, .nav-btn { width:100%; justify-content:flex-start; text-align:left; background:transparent; color:#111; border-radius:10px; box-shadow:none; }
-    .new-btn:hover, .nav-btn:hover, .session:hover { background:#ececec; }
-    .nav-btn { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .new-btn, .nav-btn, .side-link { width:100%; justify-content:flex-start; text-align:left; background:transparent; color:#111; border-radius:10px; box-shadow:none; padding:9px 10px; font-weight:500; display:flex; align-items:center; gap:10px; }
+    .new-btn:hover, .nav-btn:hover, .side-link:hover, .session:hover { background:#ececec; }
+    .nav-btn { justify-content:space-between; gap:8px; }
     .nav-btn.active, .session.active { background:#ececec; color:#111; }
+    .side-icon { width:18px; display:inline-grid; place-items:center; font-size:18px; line-height:1; color:#111; }
+    .sidebar-spacer { flex:1; min-height:18px; }
+    .profile-row { margin:0 -8px; padding:10px 16px; border-top:1px solid #e5e5e5; display:flex; gap:10px; align-items:center; background:#f9f9f9; }
+    .profile-dot { width:24px; height:24px; border-radius:999px; display:grid; place-items:center; background:#475569; color:white; font-size:11px; font-weight:700; }
+    .profile-text { line-height:1.15; font-size:14px; }
     .session-list { display:flex; flex-direction:column; gap:2px; }
-    .session { padding:8px; border-radius:10px; cursor:pointer; color:#111; }
+    .session { padding:8px 10px; border-radius:10px; cursor:pointer; color:#111; }
     .session-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; line-height:1.35; }
     small, .muted { color:#777; font-size:12px; }
     .topbar { display:flex; align-items:center; justify-content:space-between; min-height:52px; padding:0 18px; border-bottom:1px solid #eeeeee; background:rgba(255,255,255,.9); }
@@ -67,13 +72,18 @@ class MemoryholdApp extends LitElement {
     .msg.user .message-body { max-width:min(70%, 640px); }
     .bubble { width:100%; max-width:100%; padding:0; border:0; background:transparent; box-shadow:none; }
     .msg.user .bubble { width:fit-content; padding:10px 16px; border-radius:22px; background:#f4f4f4; color:#0d0d0d; }
-    .msg.error .bubble { padding:12px 14px; border-radius:12px; border:1px solid #f1b8b8; background:#fff0f0; color:#8a1f1f; }
-    form { padding:0 24px 16px; background:linear-gradient(180deg, rgba(255,255,255,0), #fff 22%); }
-    .composer { max-width:768px; margin:0 auto; display:grid; grid-template-columns:auto 1fr auto; align-items:end; gap:8px; padding:8px; border:1px solid #d9d9d9; border-radius:28px; background:#fff; box-shadow:0 8px 28px rgba(0,0,0,.08); }
-    textarea { grid-column:2; min-height:44px; max-height:180px; resize:none; border:0; outline:0; background:transparent; color:#0d0d0d; padding:10px 6px; font:inherit; line-height:1.45; }
-    .send-btn { grid-column:3; align-self:center; min-width:42px; width:42px; height:42px; padding:0; border-radius:999px; font-size:0; position:relative; }
+    .msg.error { margin-top:8px; }
+    .msg.error .bubble { padding:12px 14px 12px 38px; border-radius:12px; border:1px solid #f1b8b8; background:#fff7f7; color:#8a1f1f; position:relative; box-shadow:none; }
+    .msg.error .bubble::before { content:"!"; position:absolute; left:14px; top:14px; width:16px; height:16px; border-radius:999px; display:grid; place-items:center; background:#ef4444; color:white; font-size:11px; font-weight:800; }
+    form { padding:0 24px 8px; background:linear-gradient(180deg, rgba(255,255,255,0), #fff 22%); }
+    .composer { max-width:768px; margin:0 auto; display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:8px; padding:7px 8px; border:1px solid #d9d9d9; border-radius:28px; background:#fff; box-shadow:0 8px 28px rgba(0,0,0,.08); }
+    textarea { grid-column:2; min-height:42px; max-height:180px; resize:none; border:0; outline:0; background:transparent; color:#0d0d0d; padding:10px 6px; font:inherit; line-height:1.45; }
+    .send-btn { grid-column:4; align-self:center; min-width:42px; width:42px; height:42px; padding:0; border-radius:999px; font-size:0; position:relative; }
     .send-btn::before { content:"↑"; font-size:22px; line-height:1; }
     .composer-extra { grid-column:1; grid-row:1; display:flex; align-items:center; gap:8px; padding:0; color:#777; font-size:0; }
+    .voice-btn { grid-column:3; width:38px; height:38px; border-radius:999px; padding:0; background:transparent; color:#111; font-size:20px; display:grid; place-items:center; }
+    .voice-btn:hover { background:#f2f2f2; }
+    .disclaimer { max-width:768px; margin:6px auto 0; text-align:center; color:#777; font-size:12px; }
     input[type="file"] { display:none; }
     .file-label { display:grid; place-items:center; width:38px; height:38px; border-radius:999px; border:1px solid #e3e3e3; background:#fff; color:#111; font-size:0; cursor:pointer; }
     .file-label::before { content:"+"; font-size:24px; line-height:1; }
@@ -95,7 +105,7 @@ class MemoryholdApp extends LitElement {
     .markdown table { border-collapse:collapse; display:block; overflow:auto; }
     .markdown th, .markdown td { border:1px solid #ddd; padding:6px 9px; }
     .markdown .katex-display { overflow-x:auto; overflow-y:hidden; padding:8px 0; }
-    .error { margin:12px 24px 0; padding:12px 14px; border:1px solid #f1b8b8; border-radius:12px; background:#fff0f0; color:#8a1f1f; white-space:pre-wrap; }
+    .error-banner { margin:12px 24px 0; padding:12px 14px; border:1px solid #f1b8b8; border-radius:12px; background:#fff0f0; color:#8a1f1f; white-space:pre-wrap; }
     .settings { padding:34px 24px; overflow:auto; background:#fff; }
     .settings-inner { max-width:820px; margin:0 auto; display:grid; gap:18px; }
     .settings-hero h1 { margin:0 0 6px; font-size:30px; letter-spacing:-.04em; }
@@ -267,22 +277,25 @@ class MemoryholdApp extends LitElement {
     return html`
       <div class="layout">
         <aside>
-          <div class="brand"><h2>Memoryhold</h2></div>
-          <button class="new-btn" @click=${this.newSession}>＋ New conversation</button>
-          <button class="nav-btn ${this.view === "settings" ? "active" : ""}" @click=${() => this.view = "settings"}><span>Settings</span><small>Accounts & model</small></button>
+          <div class="brand"><h2>Memoryhold</h2><span class="side-icon">◫</span></div>
+          <button class="new-btn" @click=${this.newSession}><span class="side-icon">✎</span><span>New chat</span></button>
+          <button class="side-link"><span class="side-icon">⌕</span><span>Search chats</span></button>
+          <button class="nav-btn ${this.view === "settings" ? "active" : ""}" @click=${() => this.view = "settings"}><span><span class="side-icon">⚙</span> Settings</span></button>
           <section>
-            <h3>Conversations</h3>
+            <h3>Recents</h3>
             <div class="session-list">
-              ${this.sessions.map((s) => html`<div class="session ${this.active?.slug === s.slug ? "active" : ""}" @click=${() => this.openSession(s)}><div class="session-title">${s.title}</div><small>${new Date(s.lastModified).toLocaleString()}</small></div>`)}
+              ${this.sessions.map((s) => html`<div class="session ${this.active?.slug === s.slug ? "active" : ""}" @click=${() => this.openSession(s)}><div class="session-title">${s.title}</div></div>`)}
             </div>
           </section>
+          <div class="sidebar-spacer"></div>
+          <div class="profile-row"><div class="profile-dot">M</div><div class="profile-text"><div>Memoryhold</div><small>Local</small></div></div>
         </aside>
         <main>
           <header class="topbar">
             <div class="chat-title"><strong>${this.view === "settings" ? "Settings" : this.active?.title ?? "No conversation selected"}</strong><small>${this.view === "settings" ? "Accounts, providers, and defaults" : `${this.selectedProvider}${this.selectedModel ? ` / ${this.selectedModel}` : ""}`}</small></div>
             <div class="status-pill">${this.isStreaming ? "Streaming" : "Ready"}</div>
           </header>
-          ${this.errorMessage ? html`<div class="error">${this.errorMessage}</div>` : ""}
+          ${this.errorMessage ? html`<div class="error-banner">${this.errorMessage}</div>` : ""}
           ${this.view === "settings" ? html`
             <div class="settings">
               <div class="settings-inner">
@@ -338,12 +351,14 @@ class MemoryholdApp extends LitElement {
             <form @submit=${this.send}>
               <div class="composer">
                 <textarea .value=${this.draft} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
-                <button class="send-btn">${this.isStreaming ? "Queue" : "Send"}</button>
+                <button type="button" class="voice-btn" title="Voice input">⌕</button>
+                <button class="send-btn" title=${this.isStreaming ? "Queue message" : "Send message"}>${this.isStreaming ? "Queue" : "Send"}</button>
                 <div class="composer-extra">
                   <label class="file-label">＋ Attach<input type="file" multiple @change=${(e: Event) => this.files = Array.from((e.target as HTMLInputElement).files ?? [])} /></label>
                   ${this.files.length ? html`<span>${this.files.length} file${this.files.length === 1 ? "" : "s"} selected</span>` : html`<span>No files attached</span>`}
                 </div>
               </div>
+              <div class="disclaimer">Memoryhold can make mistakes. Check important info.</div>
             </form>`}
         </main>
       </div>
