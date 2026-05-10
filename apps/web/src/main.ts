@@ -50,8 +50,9 @@ class MemoryholdApp extends LitElement {
 
   private async loadProviders() {
     this.providers = await fetch(`${API}/api/providers`).then((r) => r.json());
-    this.selectedProvider = this.providers[0]?.id ?? "";
-    this.selectedModel = this.providers[0]?.models[0]?.id ?? "";
+    const preferredProvider = this.providers.find((p) => p.id === "openai-codex") ?? this.providers.find((p) => p.id === "openai") ?? this.providers[0];
+    this.selectedProvider = preferredProvider?.id ?? "";
+    this.selectedModel = preferredProvider?.models[0]?.id ?? "";
   }
 
   private async newSession() {
@@ -83,6 +84,12 @@ class MemoryholdApp extends LitElement {
         void this.loadSessions();
       }
     };
+  }
+
+  private renderMessage(message: any) {
+    const body = this.renderContent(message.content);
+    const error = message.errorMessage ? `Error: ${message.errorMessage}` : "";
+    return [body, error].filter(Boolean).join("\n\n");
   }
 
   private renderContent(content: unknown) {
@@ -156,7 +163,7 @@ class MemoryholdApp extends LitElement {
           <div class="messages">
             ${this.active ? html`
               ${this.entries.map((e: any) => {
-                if (e.type === "message") return html`<div class="msg"><div class="role">${e.message.role}</div>${this.renderContent(e.message.content)}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div>`;
+                if (e.type === "message") return html`<div class="msg"><div class="role">${e.message.role}${e.message.stopReason === "error" ? " · error" : ""}</div>${this.renderMessage(e.message)}${e.message.attachments?.length ? html`<div class="role">attachments: ${e.message.attachments.map((a: any) => a.relativePath).join(", ")}</div>` : ""}</div>`;
                 if (e.type === "model_change") return html`<div class="msg"><div class="role">model changed</div>${e.provider}/${e.modelId}</div>`;
                 if (e.type === "thinking_level_change") return html`<div class="msg"><div class="role">thinking changed</div>${e.thinkingLevel}</div>`;
                 return "";

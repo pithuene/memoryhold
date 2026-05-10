@@ -108,6 +108,7 @@ export class SessionRunner {
 
     const message = event.message as any;
     if (message.role !== "user" && message.role !== "assistant" && message.role !== "toolResult") return;
+    if (message.errorMessage) this.events.publish(slug, { type: "error", message: message.errorMessage });
     const entry = await this.repo.appendRawMessage(slug, message);
     await this.publishSessionUpdate(slug, { type: "entry_appended", entry });
   }

@@ -1,6 +1,7 @@
 import type { SessionTreeEntry } from "@memoryhold/shared";
 
 export function messageText(message: any): string {
+  if (message?.errorMessage) return `Error: ${message.errorMessage}`;
   const content = message?.content;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
@@ -15,7 +16,7 @@ export function messageText(message: any): string {
       .filter(Boolean)
       .join("\n");
   }
-  return "";
+  return message?.stopReason === "error" ? "Error: model call failed" : "";
 }
 
 export function entriesToMessages(entries: SessionTreeEntry[]): any[] {
