@@ -30,13 +30,16 @@ class MemoryholdApp extends LitElement {
   @state() private authUrl = "";
   @state() private callbackInput = "";
   @state() private view: "chat" | "settings" = "chat";
+  @state() private sidebarCollapsed = false;
   private eventSource?: EventSource;
 
   static styles = [unsafeCSS(katexCss), css`
     :host { display:block; height:100vh; max-height:100vh; overflow:hidden; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#0d0d0d; background:#fff; }
     * { box-sizing:border-box; }
     .layout { display:grid; grid-template-columns:260px minmax(0,1fr); height:100vh; overflow:hidden; background:#fff; }
+    .layout.sidebar-collapsed { grid-template-columns:0 minmax(0,1fr); }
     aside { display:flex; flex-direction:column; gap:4px; min-height:0; overflow:auto; padding:12px 8px 0; background:#f9f9f9; border-right:1px solid #e5e5e5; }
+    .layout.sidebar-collapsed aside { padding:0; border-right:0; overflow:hidden; }
     main { display:grid; grid-template-rows:auto minmax(0,1fr) auto; min-width:0; min-height:0; overflow:hidden; background:#fff; }
     .brand { display:flex; align-items:center; justify-content:space-between; height:40px; padding:0 8px 8px; }
     h2 { margin:0; font-size:18px; font-weight:700; letter-spacing:-.02em; }
@@ -55,6 +58,9 @@ class MemoryholdApp extends LitElement {
     .session-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; line-height:1.35; }
     small, .muted { color:#777; font-size:12px; }
     .topbar { display:flex; align-items:center; justify-content:space-between; min-height:52px; padding:0 18px; border-bottom:1px solid #eeeeee; background:rgba(255,255,255,.9); }
+    .topbar-left { display:flex; align-items:center; gap:12px; min-width:0; }
+    .sidebar-toggle { width:34px; height:34px; border-radius:9px; padding:0; background:transparent; color:#111; display:grid; place-items:center; font-size:17px; }
+    .sidebar-toggle:hover { background:#ececec; }
     .chat-title strong { display:block; max-width:60vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; font-weight:650; }
     .status-pill { color:#555; font-size:13px; }
     .messages { min-height:0; overflow-y:auto; overflow-x:hidden; padding:28px 24px 120px; background:#fff; scroll-behavior:smooth; }
@@ -271,9 +277,9 @@ class MemoryholdApp extends LitElement {
 
   override render() {
     return html`
-      <div class="layout">
+      <div class="layout ${this.sidebarCollapsed ? "sidebar-collapsed" : ""}">
         <aside>
-          <div class="brand"><h2>Memoryhold</h2><span class="side-icon">◫</span></div>
+          <div class="brand"><h2>Memoryhold</h2><button class="sidebar-toggle" title="Hide sidebar" @click=${() => this.sidebarCollapsed = true}>◫</button></div>
           <button class="new-btn" @click=${this.newSession}><span class="side-icon">✎</span><span>New chat</span></button>
           <button class="nav-btn ${this.view === "settings" ? "active" : ""}" @click=${() => this.view = "settings"}><span class="side-icon">⚙</span><span>Settings</span></button>
           <section>
@@ -285,7 +291,10 @@ class MemoryholdApp extends LitElement {
         </aside>
         <main>
           <header class="topbar">
-            <div class="chat-title"><strong>${this.view === "settings" ? "Settings" : this.active?.title ?? "No conversation selected"}</strong><small>${this.view === "settings" ? "Accounts, providers, and defaults" : `${this.selectedProvider}${this.selectedModel ? ` / ${this.selectedModel}` : ""}`}</small></div>
+            <div class="topbar-left">
+              ${this.sidebarCollapsed ? html`<button class="sidebar-toggle" title="Show sidebar" @click=${() => this.sidebarCollapsed = false}>◫</button>` : ""}
+              <div class="chat-title"><strong>${this.view === "settings" ? "Settings" : this.active?.title ?? "No conversation selected"}</strong><small>${this.view === "settings" ? "Accounts, providers, and defaults" : `${this.selectedProvider}${this.selectedModel ? ` / ${this.selectedModel}` : ""}`}</small></div>
+            </div>
             <div class="status-pill">${this.isStreaming ? "Streaming" : "Ready"}</div>
           </header>
           ${this.errorMessage ? html`<div class="error-banner">${this.errorMessage}</div>` : ""}
