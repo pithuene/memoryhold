@@ -425,6 +425,19 @@ class MemoryholdApp extends LitElement {
     await this.openSession(this.active);
   }
 
+  private handleComposerKeydown(ev: KeyboardEvent) {
+    if (ev.key !== "Enter" || ev.shiftKey || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    ev.preventDefault();
+    const form = (ev.target as HTMLElement).closest("form");
+    form?.requestSubmit();
+  }
+
+  private handleEditKeydown(ev: KeyboardEvent, entry: any) {
+    if (ev.key !== "Enter" || ev.shiftKey || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    ev.preventDefault();
+    void this.saveEdit(entry);
+  }
+
   private async send(ev: Event) {
     ev.preventDefault();
     if (!this.active || !this.draft.trim()) return;
@@ -524,7 +537,7 @@ class MemoryholdApp extends LitElement {
                     return html`<div class=${classes}><div class="avatar">${avatar}</div><div class="message-body"><div class="role">${label}</div><div class="bubble">${isEditing ? html`
                       <div class="edit-box">
                         ${this.renderAttachments(this.messageAttachments(e.message))}
-                        <textarea class="edit-textarea" .value=${this.editingDraft} @input=${(ev: InputEvent) => this.editingDraft = (ev.target as HTMLTextAreaElement).value}></textarea>
+                        <textarea class="edit-textarea" .value=${this.editingDraft} @keydown=${(ev: KeyboardEvent) => this.handleEditKeydown(ev, e)} @input=${(ev: InputEvent) => this.editingDraft = (ev.target as HTMLTextAreaElement).value}></textarea>
                         <div class="edit-actions"><button class="cancel" @click=${() => this.editingEntryId = ""}>Cancel</button><button class="save" @click=${() => this.saveEdit(e)}>Send</button></div>
                       </div>
                     ` : html`${this.renderAttachments(this.messageAttachments(e.message))}${this.renderMessage(e.message)}`}</div>${role === "user" && !isEditing ? html`<div class="message-actions"><button class="action-btn" title="Copy" @click=${() => this.copyMessage(e.message)}>⧉</button><button class="action-btn" title="Edit" @click=${() => this.startEdit(e)}>✎</button></div>` : ""}</div></div>`;
@@ -538,7 +551,7 @@ class MemoryholdApp extends LitElement {
             <form @submit=${this.send}>
               ${this.files.length ? html`<div class="selected-files">${this.files.map((file) => html`<div class="selected-file">${file.name}</div>`)}</div>` : ""}
               <div class="composer">
-                <textarea .value=${this.draft} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
+                <textarea .value=${this.draft} @keydown=${this.handleComposerKeydown} @input=${(e: InputEvent) => this.draft = (e.target as HTMLTextAreaElement).value} placeholder="Message Memoryhold..."></textarea>
                 <button class="send-btn" title=${this.isStreaming ? "Queue message" : "Send message"}>${this.isStreaming ? "Queue" : "Send"}</button>
                 <div class="composer-extra">
                   <label class="file-label">＋ Attach<input type="file" multiple @change=${(e: Event) => this.files = Array.from((e.target as HTMLInputElement).files ?? [])} /></label>
