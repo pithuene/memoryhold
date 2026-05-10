@@ -13,7 +13,7 @@ let mainWindow: BrowserWindow | undefined;
 
 app.setName("Memoryhold");
 
-const isDev = !app.isPackaged;
+const isDev = process.env.MEMORYHOLD_ELECTRON_DEV === "1" || !app.isPackaged;
 const serverPort = Number(process.env.MEMORYHOLD_SERVER_PORT ?? 8787);
 const webUrl = process.env.MEMORYHOLD_WEB_URL ?? `http://localhost:5173`;
 
@@ -35,6 +35,7 @@ function writeConfig(config: DesktopConfig) {
 }
 
 async function chooseConversationsDir(): Promise<string | undefined> {
+  app.focus({ steal: true });
   const result = await dialog.showOpenDialog({
     title: "Choose Memoryhold conversations folder",
     message: "Choose where Memoryhold should store local conversations and attachments.",
@@ -72,7 +73,7 @@ async function getConversationsDir(): Promise<string> {
 }
 
 function projectRoot() {
-  return resolve(app.getAppPath(), "../..");
+  return process.env.MEMORYHOLD_PROJECT_ROOT ? resolve(process.env.MEMORYHOLD_PROJECT_ROOT) : resolve(app.getAppPath(), "../..");
 }
 
 function spawnPnpm(args: string[], env = process.env) {
