@@ -82,12 +82,13 @@ class MemoryholdApp extends LitElement {
     .msg.user .message-actions { justify-content:flex-end; padding-right:8px; }
     .action-btn { width:30px; height:30px; padding:0; border-radius:8px; display:grid; place-items:center; background:transparent; color:#666; font-size:15px; }
     .action-btn:hover { background:#ececec; color:#111; }
-    .msg.user.editing .message-body { max-width:min(70%, 640px); width:min(70%, 640px); }
-    .msg.user.editing .bubble { width:100%; padding:10px 12px; }
-    .edit-box { display:grid; gap:10px; width:100%; }
-    .edit-textarea { width:100%; min-height:24px; max-height:180px; resize:none; border:0; outline:0; background:transparent; border-radius:0; padding:0; font:inherit; line-height:1.45; color:#111; overflow:auto; }
-    .edit-actions { display:flex; justify-content:flex-end; gap:8px; }
-    .edit-actions button { padding:7px 14px; border-radius:999px; font-size:14px; }
+    .msg.user.editing { justify-content:flex-start; }
+    .msg.user.editing .message-body { width:100%; max-width:100%; }
+    .msg.user.editing .bubble { width:100%; min-height:132px; padding:20px; border-radius:24px; text-align:left; }
+    .edit-box { min-height:92px; position:relative; width:100%; padding-bottom:42px; }
+    .edit-textarea { display:block; width:100%; min-height:28px; max-height:190px; resize:none; border:0; outline:0; background:transparent; border-radius:0; padding:0; font:inherit; line-height:1.45; color:#111; overflow:auto; text-align:left; }
+    .edit-actions { position:absolute; right:0; bottom:0; display:flex; align-items:center; gap:10px; }
+    .edit-actions button { padding:8px 15px; border-radius:999px; font-size:14px; font-weight:650; }
     .edit-actions .cancel { background:#fff; color:#111; border:1px solid #ddd; }
     .edit-actions .cancel:hover { background:#f6f6f6; }
     .edit-actions .save { background:#0d0d0d; color:#fff; }
