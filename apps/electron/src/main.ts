@@ -55,7 +55,10 @@ async function pickAndSwitchConversationsDir() {
       const url = new URL(webUrl);
       url.searchParams.set("memoryholdElectron", "1");
       await mainWindow.loadURL(url.toString());
-    } else await mainWindow.loadFile(join(app.getAppPath(), "../web/index.html"), { query: { memoryholdElectron: "1" } });
+    } else {
+      await waitForUrl(`http://localhost:${serverPort}/api/health`, "Memoryhold server");
+      await mainWindow.loadURL(`http://localhost:${serverPort}/?memoryholdElectron=1`);
+    }
   }
 }
 
@@ -101,8 +104,13 @@ function startServer(conversationsDir: string) {
   if (isDev) {
     serverProcess = spawnPnpm(["--filter", "@memoryhold/server", "dev"], env);
   } else {
-    serverProcess = spawn(process.execPath, [join(process.resourcesPath, "server", "index.js")], {
-      env,
+    serverProcess = spawn(process.execPath, [join(process.resourcesPath, "app", "apps", "server", "dist", "index.js")], {
+      env: {
+        ...env,
+        ELECTRON_RUN_AS_NODE: "1",
+        MEMORYHOLD_WEB_DIST: join(process.resourcesPath, "app", "apps", "web", "dist"),
+      },
+      cwd: join(process.resourcesPath, "app"),
       stdio: "inherit",
     });
   }
@@ -169,7 +177,7 @@ async function createWindow() {
     url.searchParams.set("memoryholdElectron", "1");
     await mainWindow.loadURL(url.toString());
   } else {
-    await mainWindow.loadFile(join(app.getAppPath(), "../web/index.html"), { query: { memoryholdElectron: "1" } });
+    await mainWindow.loadURL(`http://localhost:${serverPort}/?memoryholdElectron=1`);
   }
 }
 

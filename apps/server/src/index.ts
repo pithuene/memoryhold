@@ -1,7 +1,9 @@
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { getModels, getProviders, getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { existsSync } from "node:fs";
 import type { SendMessageRequest } from "@memoryhold/shared";
 import { SessionRepo } from "./session-repo.js";
 import { AuthStore } from "./auth-store.js";
@@ -111,6 +113,13 @@ app.get("/api/sessions/:slug/events", (c) => {
     },
   });
 });
+
+const webDistDir = process.env.MEMORYHOLD_WEB_DIST;
+if (webDistDir && existsSync(webDistDir)) {
+  app.use("/assets/*", serveStatic({ root: webDistDir }));
+  app.use("/favicon.ico", serveStatic({ root: webDistDir }));
+  app.get("*", serveStatic({ path: `${webDistDir}/index.html` }));
+}
 
 app.post("/api/tools/web-search", async (c) => {
   const { query } = await c.req.json();

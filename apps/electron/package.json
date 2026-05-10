@@ -8,13 +8,16 @@
   "scripts": {
     "dev": "tsc -p tsconfig.json && node scripts/dev-app.mjs",
     "build": "tsc -p tsconfig.json",
+    "package:mac": "node scripts/package-mac.mjs",
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "electron": "^39.2.4"
   },
   "devDependencies": {
+    "@electron/packager": "^20.0.0",
     "@types/node": "^22.15.3",
+    "esbuild": "^0.28.0",
     "tsx": "^4.19.4"
   }
 }

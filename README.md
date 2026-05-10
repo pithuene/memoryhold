@@ -20,4 +20,13 @@ pnpm electron:dev
 
 On first launch, the desktop app asks you to choose a conversations folder. It stores that choice in Electron app data and then starts the local backend and web UI for you.
 
+## Package macOS app
+
+```bash
+pnpm package:mac
+open release/Memoryhold-darwin-*/Memoryhold.app
+```
+
+The packaged app is unsigned for now. macOS may require right-click → Open the first time.
+
 See [PLAN.md](./PLAN.md) for the project plan.
