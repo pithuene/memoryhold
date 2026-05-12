@@ -10,6 +10,7 @@ import { AuthStore } from "./auth-store.js";
 import { EventHub } from "./events.js";
 import { createOAuthRoutes } from "./oauth-routes.js";
 import { SessionRunner } from "./session-runner.js";
+import { fetchWebPage, searchWeb } from "./web-tools.js";
 
 const conversationsDir = process.env.CONVERSATIONS_DIR;
 if (!conversationsDir) {
@@ -138,8 +139,13 @@ if (webDistDir && existsSync(webDistDir)) {
 }
 
 app.post("/api/tools/web-search", async (c) => {
-  const { query } = await c.req.json();
-  return c.json({ query, results: [], note: "web_search tool stub; provider implementation pending" });
+  const { query, numResults } = await c.req.json();
+  return c.json({ query, results: await searchWeb(String(query ?? ""), Number(numResults ?? 5)) });
+});
+
+app.post("/api/tools/web-fetch", async (c) => {
+  const { url } = await c.req.json();
+  return c.json(await fetchWebPage(String(url ?? "")));
 });
 
 const port = Number(process.env.PORT ?? 8787);

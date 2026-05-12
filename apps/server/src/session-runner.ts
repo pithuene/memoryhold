@@ -6,7 +6,7 @@ import { AuthStore } from "./auth-store.js";
 import { EventHub } from "./events.js";
 import { messageText, entriesToMessages } from "./message-utils.js";
 import { SessionRepo } from "./session-repo.js";
-import { createWebSearchTool } from "./tools.js";
+import { createWebFetchTool, createWebSearchTool } from "./web-tools.js";
 
 interface RuntimeState {
   agent: Agent;
@@ -129,7 +129,7 @@ export class SessionRunner {
         model: getModel(modelRef.provider as any, modelRef.modelId as any),
         thinkingLevel,
         messages: entriesToMessages(entries),
-        tools: [createWebSearchTool()],
+        tools: [createWebSearchTool(), createWebFetchTool()],
       },
     });
 
