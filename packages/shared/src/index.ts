@@ -67,6 +67,7 @@ export interface UploadedAttachmentRef {
 
 export type ServerEvent =
   | { type: "session_updated"; metadata: SessionMetadata }
+  | { type: "session_deleted"; slug: string }
   | { type: "entry_appended"; entry: SessionTreeEntry }
   | { type: "message_update"; parentId: string | null; content: string }
   | { type: "stream_status"; isStreaming: boolean }

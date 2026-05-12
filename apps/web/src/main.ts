@@ -37,6 +37,7 @@ class MemoryholdApp extends LitElement {
   @state() private renamingSlug = "";
   @state() private renamingTitle = "";
   @state() private contextMenu?: { slug: string; x: number; y: number };
+  @state() private deleteCandidate?: SessionMetadata;
   private eventSource?: EventSource;
   private shouldScrollToBottom = false;
 
@@ -70,6 +71,14 @@ class MemoryholdApp extends LitElement {
     .context-menu { position:fixed; z-index:1000; min-width:150px; padding:6px; border:1px solid #ddd; border-radius:12px; background:#fff; box-shadow:0 12px 28px rgba(0,0,0,.14); }
     .context-menu button { width:100%; display:block; text-align:left; background:transparent; color:#111; border-radius:8px; padding:8px 10px; font-weight:500; }
     .context-menu button:hover { background:#f0f0f0; }
+    .context-menu button.danger { color:#b42318; }
+    .modal-backdrop { position:fixed; inset:0; z-index:1100; display:grid; place-items:center; background:rgba(0,0,0,.28); }
+    .modal { width:min(420px, calc(100vw - 32px)); border:1px solid #ddd; border-radius:18px; background:#fff; box-shadow:0 24px 70px rgba(0,0,0,.24); padding:20px; }
+    .modal h2 { font-size:18px; margin:0 0 8px; }
+    .modal p { margin:0 0 18px; color:#555; line-height:1.45; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:10px; }
+    button.danger { background:#d92d20; color:#fff; }
+    button.danger:hover { background:#b42318; }
     small, .muted { color:#777; font-size:12px; }
     .topbar { display:flex; align-items:center; justify-content:space-between; min-height:52px; padding:0 18px; border-bottom:1px solid #eeeeee; background:rgba(255,255,255,.9); }
     .topbar-left { display:flex; align-items:center; gap:12px; min-width:0; }
@@ -335,6 +344,31 @@ class MemoryholdApp extends LitElement {
     }
   }
 
+  private askDelete(session: SessionMetadata) {
+    this.contextMenu = undefined;
+    this.deleteCandidate = session;
+  }
+
+  private async confirmDelete() {
+    const session = this.deleteCandidate;
+    if (!session) return;
+    const response = await fetch(`${API}/api/sessions/${session.slug}`, { method: "DELETE" });
+    if (!response.ok) {
+      this.errorMessage = await response.text();
+      return;
+    }
+    this.sessions = this.sessions.filter((item) => item.slug !== session.slug);
+    if (this.active?.slug === session.slug) {
+      this.eventSource?.close();
+      this.active = undefined;
+      this.entries = [];
+      this.streamingContent = "";
+      this.isStreaming = false;
+      window.history.pushState({}, "", "/");
+    }
+    this.deleteCandidate = undefined;
+  }
+
   private async newSession() {
     const metadata = await fetch(`${API}/api/sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then((r) => r.json());
     await this.loadSessions();
@@ -584,6 +618,22 @@ class MemoryholdApp extends LitElement {
               const session = this.sessions.find((item) => item.slug === this.contextMenu?.slug);
               if (session) this.startRename(session);
             }}>Rename</button>
+            <button class="danger" @click=${() => {
+              const session = this.sessions.find((item) => item.slug === this.contextMenu?.slug);
+              if (session) this.askDelete(session);
+            }}>Delete</button>
+          </div>
+        ` : ""}
+        ${this.deleteCandidate ? html`
+          <div class="modal-backdrop" @click=${() => this.deleteCandidate = undefined}>
+            <div class="modal" @click=${(event: MouseEvent) => event.stopPropagation()}>
+              <h2>Delete conversation?</h2>
+              <p>This will permanently delete “${this.deleteCandidate.title}” and its attachments from the conversations folder.</p>
+              <div class="modal-actions">
+                <button class="secondary" @click=${() => this.deleteCandidate = undefined}>Cancel</button>
+                <button class="danger" @click=${this.confirmDelete}>Delete</button>
+              </div>
+            </div>
           </div>
         ` : ""}
         <main>

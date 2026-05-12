@@ -59,6 +59,15 @@ app.patch("/api/sessions/:slug", async (c) => {
   return c.json(metadata);
 });
 
+app.delete("/api/sessions/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  if (runner.isStreaming(slug)) return c.text("Cannot delete while a response is streaming", 409);
+  runner.reset(slug);
+  await repo.delete(slug);
+  events.publish(slug, { type: "session_deleted", slug });
+  return c.json({ ok: true });
+});
+
 app.post("/api/sessions/:slug/attachments", async (c) => {
   const slug = c.req.param("slug");
   const form = await c.req.formData();

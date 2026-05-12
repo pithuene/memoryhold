@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, writeFile, appendFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile, appendFile, rm } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { CreateSessionRequest, MessageEntry, ModelChangeEntry, SessionHeader, SessionMetadata, SessionTreeEntry, ThinkingLevelChangeEntry, UploadedAttachmentRef } from "@memoryhold/shared";
@@ -66,6 +66,10 @@ export class SessionRepo {
     const lines = (await readFile(join(dir, "session.jsonl"), "utf8")).split("\n").filter(Boolean);
     const entries = lines.slice(1).map((line) => JSON.parse(line) as SessionTreeEntry);
     return { metadata, entries };
+  }
+
+  async delete(slug: string): Promise<void> {
+    await rm(this.sessionDir(slug), { recursive: true, force: true });
   }
 
   async rename(slug: string, title: string): Promise<SessionMetadata> {
