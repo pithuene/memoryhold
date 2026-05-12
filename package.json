@@ -13,7 +13,7 @@
     "chatgpt:login": "CHATGPT_REF_SETUP=1 node scripts/chatgpt-reference.mjs",
     "screenshot:chatgpt-ref": "node scripts/chatgpt-reference.mjs"
   },
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.19.0",
   "devDependencies": {
     "@types/node": "^22.15.3",
     "playwright": "^1.59.1",
