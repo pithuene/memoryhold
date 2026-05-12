@@ -86,7 +86,7 @@ async function fetchText(url: string, options: { maxBytes?: number } = {}): Prom
   }
 }
 
-async function exaSearch(query: string, numResults: number): Promise<WebSearchResult[]> {
+async function exaApiSearch(query: string, numResults: number): Promise<WebSearchResult[]> {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) return [];
   const response = await fetch("https://api.exa.ai/search", {
@@ -102,6 +102,61 @@ async function exaSearch(query: string, numResults: number): Promise<WebSearchRe
     snippet: truncate(r.summary || r.text || "", MAX_SEARCH_SNIPPET_CHARS),
     source: "exa" as const,
   }));
+}
+
+function parseSseJson(text: string): any {
+  const data = text.split("\n").find((line) => line.startsWith("data: "))?.slice(6);
+  if (!data) throw new Error("MCP response did not contain data event");
+  return JSON.parse(data);
+}
+
+async function exaMcpCall(name: string, args: Record<string, unknown>): Promise<any> {
+  const endpoint = process.env.EXA_MCP_URL ?? "https://mcp.exa.ai/mcp";
+  const headers = { "content-type": "application/json", accept: "application/json, text/event-stream" };
+  const initialize = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "memoryhold", version: "0.1" } } }),
+  });
+  if (!initialize.ok) throw new Error(`Exa MCP initialize failed: HTTP ${initialize.status}`);
+  const sessionId = initialize.headers.get("mcp-session-id");
+  const callHeaders = sessionId ? { ...headers, "mcp-session-id": sessionId } : headers;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: callHeaders,
+    body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name, arguments: args } }),
+  });
+  if (!response.ok) throw new Error(`Exa MCP ${name} failed: HTTP ${response.status}`);
+  const payload = parseSseJson(await response.text());
+  if (payload.error) throw new Error(payload.error.message ?? `Exa MCP ${name} failed`);
+  return payload.result;
+}
+
+function parseExaMcpSearchText(text: string): WebSearchResult[] {
+  const results: WebSearchResult[] = [];
+  for (const block of text.split(/\n\s*---\s*\n|(?=\nTitle: )/g)) {
+    const title = block.match(/(?:^|\n)Title:\s*(.+)/)?.[1]?.trim();
+    const url = block.match(/(?:^|\n)URL:\s*(\S+)/)?.[1]?.trim();
+    if (!title || !url) continue;
+    const snippet = block.replace(/[\s\S]*?Highlights:\s*/i, "").trim();
+    results.push({ title, url, snippet: truncate(snippet, MAX_SEARCH_SNIPPET_CHARS), source: "exa" });
+  }
+  return results;
+}
+
+async function exaMcpSearch(query: string, numResults: number): Promise<WebSearchResult[]> {
+  const result = await exaMcpCall("web_search_exa", { query, numResults });
+  const text = (result.content ?? []).map((item: any) => item?.type === "text" ? item.text : "").join("\n\n");
+  return parseExaMcpSearchText(text).slice(0, numResults);
+}
+
+async function exaMcpFetch(url: string): Promise<WebFetchResult> {
+  const result = await exaMcpCall("web_fetch_exa", { urls: [url], maxCharacters: MAX_FETCH_CHARS });
+  const text = (result.content ?? []).map((item: any) => item?.type === "text" ? item.text : "").join("\n\n");
+  const title = text.match(/(?:^|\n)Title:\s*(.+)/)?.[1]?.trim();
+  const finalUrl = text.match(/(?:^|\n)URL:\s*(\S+)/)?.[1]?.trim() ?? url;
+  const body = text.replace(/^(Title|URL|Published|Author):.*$/gim, "").replace(/^Text:\s*/im, "").trim();
+  return { url, finalUrl, title, contentType: "text/markdown", text: truncate(body || text, MAX_FETCH_CHARS) };
 }
 
 function duckUrl(raw: string): string {
@@ -139,8 +194,14 @@ async function duckDuckGoSearch(query: string, numResults: number): Promise<WebS
 export async function searchWeb(query: string, numResults = 5): Promise<WebSearchResult[]> {
   const limit = Math.max(1, Math.min(10, numResults));
   try {
-    const exa = await exaSearch(query, limit);
+    const exa = await exaApiSearch(query, limit);
     if (exa.length) return exa;
+  } catch (error) {
+    console.warn(error instanceof Error ? error.message : error);
+  }
+  try {
+    const exaMcp = await exaMcpSearch(query, limit);
+    if (exaMcp.length) return exaMcp;
   } catch (error) {
     console.warn(error instanceof Error ? error.message : error);
   }
@@ -149,6 +210,12 @@ export async function searchWeb(query: string, numResults = 5): Promise<WebSearc
 
 export async function fetchWebPage(inputUrl: string): Promise<WebFetchResult> {
   const url = normalizeUrl(inputUrl);
+  try {
+    return await exaMcpFetch(url);
+  } catch (error) {
+    console.warn(error instanceof Error ? error.message : error);
+  }
+
   const { text: raw, finalUrl, contentType } = await fetchText(url);
   const isHtml = /html/i.test(contentType ?? "") || /<html|<body|<article|<main/i.test(raw.slice(0, 2000));
   const title = isHtml ? htmlAttr(raw, /<title[^>]*>([\s\S]*?)<\/title>/i) : undefined;
@@ -161,7 +228,7 @@ export function createWebSearchTool(): AgentTool<any> {
   return {
     name: "web_search",
     label: "Web Search",
-    description: "Search the web for current information. Uses Exa when EXA_API_KEY is configured, otherwise DuckDuckGo HTML.",
+    description: "Search the web for current information. Uses EXA_API_KEY when configured, otherwise Exa's public MCP endpoint, then DuckDuckGo HTML as fallback.",
     parameters: Type.Object({
       query: Type.String({ description: "Search query" }),
       numResults: Type.Optional(Type.Number({ description: "Number of results to return, 1-10" })),
@@ -181,7 +248,7 @@ export function createWebFetchTool(): AgentTool<any> {
   return {
     name: "web_fetch",
     label: "Web Fetch",
-    description: "Fetch a URL and extract readable page text for citation or analysis.",
+    description: "Fetch a URL and extract readable page text for citation or analysis. Uses Exa's public MCP endpoint with local fetch fallback.",
     parameters: Type.Object({
       url: Type.String({ description: "http(s) URL to fetch" }),
     }),
