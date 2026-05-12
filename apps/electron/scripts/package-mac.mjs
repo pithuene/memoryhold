@@ -25,6 +25,7 @@ mkdirSync(release, { recursive: true });
 
 cpSync(join(process.cwd(), 'dist'), join(staging, 'dist'), { recursive: true });
 cpSync(join(root, 'apps/web/dist'), join(staging, 'apps/web/dist'), { recursive: true });
+cpSync(join(process.cwd(), 'assets/icon.png'), join(staging, 'icon.png'));
 
 const canvasPackage = realpathSync(join(root, 'apps/server/node_modules/@napi-rs/canvas'));
 const canvasBinaryPackage = realpathSync(join(root, `node_modules/.pnpm/@napi-rs+canvas-darwin-${process.arch === 'arm64' ? 'arm64' : 'x64'}@1.0.0/node_modules/@napi-rs/canvas-darwin-${process.arch === 'arm64' ? 'arm64' : 'x64'}`));
@@ -61,6 +62,8 @@ await packager({
   arch: process.arch === 'arm64' ? 'arm64' : 'x64',
   appBundleId: 'com.memoryhold.app',
   appCategoryType: 'public.app-category.productivity',
+  icon: join(process.cwd(), 'assets/icon'),
+  extraResource: [join(process.cwd(), 'assets/icon.png')],
   asar: { unpack: '**/*.node' },
   prune: false,
 });

@@ -79,6 +79,10 @@ function projectRoot() {
   return process.env.MEMORYHOLD_PROJECT_ROOT ? resolve(process.env.MEMORYHOLD_PROJECT_ROOT) : resolve(app.getAppPath(), "../..");
 }
 
+function iconPath() {
+  return isDev ? join(projectRoot(), "apps/electron/assets/icon.png") : join(process.resourcesPath, "icon.png");
+}
+
 function spawnPnpm(args: string[], env = process.env) {
   return spawn("pnpm", args, {
     cwd: projectRoot(),
@@ -159,6 +163,7 @@ async function createWindow() {
     minWidth: 960,
     minHeight: 700,
     title: "Memoryhold",
+    icon: iconPath(),
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 18 } : undefined,
     webPreferences: {

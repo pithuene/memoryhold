@@ -1,5 +1,9 @@
 # Memoryhold
 
+<p align="center">
+  <img src="assets/logo-transparent.png" alt="Memoryhold logo" width="140" height="140">
+</p>
+
 Memoryhold is a local-first ChatGPT-like desktop/web app for private AI conversations. It stores chats, metadata, and attachments on your filesystem, while using a local backend to run models and tools through [`pi`](https://github.com/earendil-works/pi) packages.
 
 > Status: early developer preview. The app works locally, but packaged builds are currently unsigned/unnotarized.
