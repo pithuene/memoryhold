@@ -52,6 +52,13 @@ app.post("/api/sessions", async (c) => {
 
 app.get("/api/sessions/:slug", async (c) => c.json(await repo.get(c.req.param("slug"))));
 
+app.patch("/api/sessions/:slug", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const metadata = await repo.rename(c.req.param("slug"), String(body.title ?? ""));
+  events.publish(metadata.slug, { type: "session_updated", metadata });
+  return c.json(metadata);
+});
+
 app.post("/api/sessions/:slug/attachments", async (c) => {
   const slug = c.req.param("slug");
   const form = await c.req.formData();

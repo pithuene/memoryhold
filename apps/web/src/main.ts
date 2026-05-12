@@ -34,6 +34,8 @@ class MemoryholdApp extends LitElement {
   @state() private sidebarCollapsed = false;
   @state() private editingEntryId = "";
   @state() private editingDraft = "";
+  @state() private renamingSlug = "";
+  @state() private renamingTitle = "";
   private eventSource?: EventSource;
   private shouldScrollToBottom = false;
 
@@ -63,6 +65,7 @@ class MemoryholdApp extends LitElement {
     .session-list { display:flex; flex-direction:column; gap:2px; }
     .session { padding:8px 10px; border-radius:10px; cursor:pointer; color:#111; }
     .session-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; line-height:1.35; }
+    .session-rename-input { width:100%; border:1px solid #d6d6d6; border-radius:8px; padding:5px 7px; font:inherit; background:#fff; color:#111; outline:none; }
     small, .muted { color:#777; font-size:12px; }
     .topbar { display:flex; align-items:center; justify-content:space-between; min-height:52px; padding:0 18px; border-bottom:1px solid #eeeeee; background:rgba(255,255,255,.9); }
     .topbar-left { display:flex; align-items:center; gap:12px; min-width:0; }
@@ -279,6 +282,48 @@ class MemoryholdApp extends LitElement {
     this.saveSettings();
   }
 
+  private startRename(session: SessionMetadata) {
+    this.renamingSlug = session.slug;
+    this.renamingTitle = session.title;
+    this.updateComplete.then(() => this.renderRoot.querySelector<HTMLInputElement>(".session-rename-input")?.select());
+  }
+
+  private cancelRename() {
+    this.renamingSlug = "";
+    this.renamingTitle = "";
+  }
+
+  private async saveRename(session: SessionMetadata) {
+    const title = this.renamingTitle.trim();
+    if (!title || title === session.title) {
+      this.cancelRename();
+      return;
+    }
+    const response = await fetch(`${API}/api/sessions/${session.slug}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (!response.ok) {
+      this.errorMessage = await response.text();
+      return;
+    }
+    const metadata = await response.json() as SessionMetadata;
+    this.sessions = this.sessions.map((item) => item.slug === metadata.slug ? metadata : item);
+    if (this.active?.slug === metadata.slug) this.active = metadata;
+    this.cancelRename();
+  }
+
+  private handleRenameKeydown(event: KeyboardEvent, session: SessionMetadata) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      this.saveRename(session);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      this.cancelRename();
+    }
+  }
+
   private async newSession() {
     const metadata = await fetch(`${API}/api/sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then((r) => r.json());
     await this.loadSessions();
@@ -286,6 +331,7 @@ class MemoryholdApp extends LitElement {
   }
 
   private async openSession(session: SessionMetadata, updateHistory = true) {
+    if (this.renamingSlug) return;
     this.eventSource?.close();
     this.streamingContent = "";
     this.isStreaming = false;
@@ -516,7 +562,7 @@ class MemoryholdApp extends LitElement {
           <section>
             <h3>Recents</h3>
             <div class="session-list">
-              ${this.sessions.map((s) => html`<div class="session ${this.active?.slug === s.slug ? "active" : ""}" @click=${() => this.openSession(s)}><div class="session-title">${s.title}</div></div>`)}
+              ${this.sessions.map((s) => html`<div class="session ${this.active?.slug === s.slug ? "active" : ""}" @click=${() => this.openSession(s)} @contextmenu=${(event: MouseEvent) => { event.preventDefault(); this.startRename(s); }}>${this.renamingSlug === s.slug ? html`<input class="session-rename-input" .value=${this.renamingTitle} @click=${(event: MouseEvent) => event.stopPropagation()} @input=${(event: InputEvent) => this.renamingTitle = (event.target as HTMLInputElement).value} @keydown=${(event: KeyboardEvent) => this.handleRenameKeydown(event, s)} @blur=${() => this.saveRename(s)} />` : html`<div class="session-title">${s.title}</div>`}</div>`)}
             </div>
           </section>
         </aside>

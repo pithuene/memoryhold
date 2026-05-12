@@ -68,6 +68,16 @@ export class SessionRepo {
     return { metadata, entries };
   }
 
+  async rename(slug: string, title: string): Promise<SessionMetadata> {
+    const { metadata } = await this.get(slug);
+    const nextTitle = title.trim();
+    if (!nextTitle) throw new Error("Title is required");
+    metadata.title = nextTitle.slice(0, 200);
+    metadata.lastModified = new Date().toISOString();
+    await this.saveMetadata(metadata);
+    return metadata;
+  }
+
   async appendUserMessage(slug: string, content: string, attachments: UploadedAttachmentRef[] = []): Promise<MessageEntry> {
     return this.appendMessage(slug, "user", content, undefined, attachments);
   }
