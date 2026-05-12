@@ -35,6 +35,14 @@ function shouldShowMessage(entry: any): boolean {
   return true;
 }
 function displayText(message: any) { return renderContent(message.content).replace(/\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>[\s\S]*?<\/MEMORYHOLD_ATTACHMENT_CONTEXT>/g, "").replace(/\n*Attachments saved locally:\n(?:\s*-\s+.*(?:\n|$))+/g, "").trim(); }
+function readableError(message: string) {
+  const match = message.match(/^(.*?):\s*(\{[\s\S]*\})\s*$/);
+  if (!match) return message;
+  try {
+    const parsed = JSON.parse(match[2]);
+    return `${match[1]}: ${parsed?.error?.message ?? parsed?.message ?? message}`;
+  } catch { return message; }
+}
 function markdownHtml(markdown: string) {
   const normalized = markdown.replace(/\\\[([\s\S]*?)\\\]/g, (_m, f) => `\n$$\n${f.trim()}\n$$\n`).replace(/\\\(([\s\S]*?)\\\)/g, (_m, f) => `$${f.trim()}$`);
   return DOMPurify.sanitize(marked.parse(normalized, { async: false }) as string);
@@ -76,6 +84,7 @@ function App() {
   const renameRef = useRef<HTMLInputElement>(null);
   const activeRef = useRef<SessionMetadata | undefined>(undefined);
   activeRef.current = active;
+  const showError = (message: string) => setErrorMessage(readableError(message));
 
   const loadSessions = async () => setSessions(await fetch(`${API}/api/sessions`).then((r) => r.json()));
   const loadOAuth = async () => setOauthProviders(await fetch(`${API}/api/oauth/providers`).then((r) => r.json()));
@@ -83,7 +92,7 @@ function App() {
   const openSession = async (session: SessionMetadata, updateHistory = true) => {
     if (renamingSlug) return;
     eventSource.current?.close();
-    setStreamingContent(""); setIsStreaming(false); setActive(session); setView("chat");
+    setStreamingContent(""); setIsStreaming(false); setErrorMessage(""); setActive(session); setView("chat");
     if (updateHistory) window.history.pushState({}, "", `/c/${encodeURIComponent(session.slug)}`);
     const data = await fetch(`${API}/api/sessions/${session.slug}`).then((r) => r.json());
     setEntries(data.entries);
@@ -95,7 +104,7 @@ function App() {
       if (event.type === "entry_appended") { setStreamingContent(""); setEntries((e) => [...e, event.entry]); }
       if (event.type === "message_update") setStreamingContent(event.content);
       if (event.type === "stream_status") { setIsStreaming(event.isStreaming); if (!event.isStreaming && activeRef.current) setTimeout(() => openSession(activeRef.current!, false), 0); }
-      if (event.type === "error") setErrorMessage(event.message);
+      if (event.type === "error") showError(event.message);
       if (event.type === "session_updated") { setActive(event.metadata); void loadSessions(); }
     };
   };
@@ -105,15 +114,20 @@ function App() {
   useEffect(() => { saveSettings(selectedProvider, selectedModel, thinkingLevel); }, [selectedProvider, selectedModel, thinkingLevel]);
   useEffect(() => { messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight }); }, [entries, streamingContent]);
   useEffect(() => { if (renamingSlug) renameRef.current?.select(); }, [renamingSlug]);
+  useEffect(() => {
+    if (!errorMessage) return;
+    const timeout = window.setTimeout(() => setErrorMessage(""), 12000);
+    return () => window.clearTimeout(timeout);
+  }, [errorMessage]);
 
   const newSession = async () => { const metadata = await fetch(`${API}/api/sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then((r) => r.json()); await loadSessions(); await openSession(metadata); };
-  const saveRename = async (session: SessionMetadata) => { const title = renamingTitle.trim(); if (!title || title === session.title) { setRenamingSlug(""); return; } const r = await fetch(`${API}/api/sessions/${session.slug}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) }); if (!r.ok) return setErrorMessage(await r.text()); const m = await r.json(); setSessions((ss) => ss.map((x) => x.slug === m.slug ? m : x)); if (active?.slug === m.slug) setActive(m); setRenamingSlug(""); };
-  const confirmDelete = async () => { if (!deleteCandidate) return; const r = await fetch(`${API}/api/sessions/${deleteCandidate.slug}`, { method: "DELETE" }); if (!r.ok) return setErrorMessage(await r.text()); setSessions((ss) => ss.filter((x) => x.slug !== deleteCandidate.slug)); if (active?.slug === deleteCandidate.slug) { eventSource.current?.close(); setActive(undefined); setEntries([]); window.history.pushState({}, "", "/"); } setDeleteCandidate(undefined); };
-  const startOAuth = async (id: string) => { setErrorMessage(""); const result = await fetch(`${API}/api/oauth/${id}/start`, { method: "POST" }).then((r) => r.json()); if (result.error) return setErrorMessage(result.error); setLoginId(result.loginId); if (result.authUrl) window.open(result.authUrl, "_blank"); };
-  const completeOAuth = async () => { if (!loginId || !callbackInput.trim()) return; await fetch(`${API}/api/oauth/${loginId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: callbackInput }) }); for (let i = 0; i < 30; i++) { const s = await fetch(`${API}/api/oauth/${loginId}/status`).then((r) => r.json()); if (s.status === "done") { setLoginId(""); setCallbackInput(""); await loadOAuth(); return; } if (s.status === "error") return setErrorMessage(s.error); await new Promise((r) => setTimeout(r, 500)); } };
+  const saveRename = async (session: SessionMetadata) => { const title = renamingTitle.trim(); if (!title || title === session.title) { setRenamingSlug(""); return; } const r = await fetch(`${API}/api/sessions/${session.slug}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) }); if (!r.ok) return showError(await r.text()); const m = await r.json(); setSessions((ss) => ss.map((x) => x.slug === m.slug ? m : x)); if (active?.slug === m.slug) setActive(m); setRenamingSlug(""); };
+  const confirmDelete = async () => { if (!deleteCandidate) return; const r = await fetch(`${API}/api/sessions/${deleteCandidate.slug}`, { method: "DELETE" }); if (!r.ok) return showError(await r.text()); setSessions((ss) => ss.filter((x) => x.slug !== deleteCandidate.slug)); if (active?.slug === deleteCandidate.slug) { eventSource.current?.close(); setActive(undefined); setEntries([]); window.history.pushState({}, "", "/"); } setDeleteCandidate(undefined); };
+  const startOAuth = async (id: string) => { setErrorMessage(""); const result = await fetch(`${API}/api/oauth/${id}/start`, { method: "POST" }).then((r) => r.json()); if (result.error) return showError(result.error); setLoginId(result.loginId); if (result.authUrl) window.open(result.authUrl, "_blank"); };
+  const completeOAuth = async () => { if (!loginId || !callbackInput.trim()) return; await fetch(`${API}/api/oauth/${loginId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: callbackInput }) }); for (let i = 0; i < 30; i++) { const s = await fetch(`${API}/api/oauth/${loginId}/status`).then((r) => r.json()); if (s.status === "done") { setLoginId(""); setCallbackInput(""); await loadOAuth(); return; } if (s.status === "error") return showError(s.error); await new Promise((r) => setTimeout(r, 500)); } };
 
-  const send = async (ev: React.FormEvent) => { ev.preventDefault(); if (!active || !draft.trim()) return; const content = draft; const outgoing = files; setDraft(""); setFiles([]); let attachments: any[] = []; if (outgoing.length) { const form = new FormData(); outgoing.forEach((f) => form.append("files", f)); attachments = (await fetch(`${API}/api/sessions/${active.slug}/attachments`, { method: "POST", body: form }).then((r) => r.json())).attachments; } const r = await fetch(`${API}/api/sessions/${active.slug}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, attachments, model: selectedProvider && selectedModel ? { provider: selectedProvider, modelId: selectedModel } : undefined, thinkingLevel }) }); if (!r.ok) setErrorMessage(await r.text()); };
-  const saveEdit = async (entry: any) => { if (!active || !editingDraft.trim()) return; const r = await fetch(`${API}/api/sessions/${active.slug}/messages/${entry.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editingDraft.trim(), model: selectedProvider && selectedModel ? { provider: selectedProvider, modelId: selectedModel } : undefined, thinkingLevel }) }); setEditingEntryId(""); setEditingDraft(""); if (!r.ok) return setErrorMessage(await r.text()); await openSession(active, false); };
+  const send = async (ev: React.FormEvent) => { ev.preventDefault(); if (!active || !draft.trim()) return; setErrorMessage(""); const content = draft; const outgoing = files; setDraft(""); setFiles([]); let attachments: any[] = []; if (outgoing.length) { const form = new FormData(); outgoing.forEach((f) => form.append("files", f)); attachments = (await fetch(`${API}/api/sessions/${active.slug}/attachments`, { method: "POST", body: form }).then((r) => r.json())).attachments; } const r = await fetch(`${API}/api/sessions/${active.slug}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, attachments, model: selectedProvider && selectedModel ? { provider: selectedProvider, modelId: selectedModel } : undefined, thinkingLevel }) }); if (!r.ok) showError(await r.text()); };
+  const saveEdit = async (entry: any) => { if (!active || !editingDraft.trim()) return; const r = await fetch(`${API}/api/sessions/${active.slug}/messages/${entry.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editingDraft.trim(), model: selectedProvider && selectedModel ? { provider: selectedProvider, modelId: selectedModel } : undefined, thinkingLevel }) }); setEditingEntryId(""); setEditingDraft(""); if (!r.ok) return showError(await r.text()); await openSession(active, false); };
 
   return <div className={cn("app", sidebarCollapsed && "collapsed")}>
     <aside className="sidebar">
@@ -128,7 +142,7 @@ function App() {
     </aside>
     <main className="main">
       <header className="topbar"><div className="top-left">{sidebarCollapsed && <button className="icon ghost" onClick={() => setSidebarCollapsed(false)}><PanelLeftOpen size={18}/></button>}<div><strong>{view === "settings" ? "Settings" : active?.title ?? "No conversation selected"}</strong><small>{view === "settings" ? "Accounts, providers, and defaults" : `${selectedProvider}${selectedModel ? ` / ${selectedModel}` : ""}`}</small></div></div><span className="status">{isStreaming ? "Streaming" : "Ready"}</span></header>
-      {errorMessage && <div className="error">{errorMessage}</div>}
+      {errorMessage && <div className="error" role="alert"><span>{errorMessage}</span><button type="button" aria-label="Dismiss error" onClick={() => setErrorMessage("")}><X size={15}/></button></div>}
       {view === "settings" ? <SettingsView oauthProviders={oauthProviders} startOAuth={startOAuth} loginId={loginId} callbackInput={callbackInput} setCallbackInput={setCallbackInput} completeOAuth={completeOAuth} providers={providers} selectedProvider={selectedProvider} setSelectedProvider={(p: string) => { setSelectedProvider(p); setSelectedModel(providers.find((x) => x.id === p)?.models[0]?.id ?? ""); }} selectedModel={selectedModel} setSelectedModel={setSelectedModel} thinkingLevel={thinkingLevel} setThinkingLevel={setThinkingLevel}/> : <>
         <div className="messages" ref={messagesRef}>{active ? <div className="thread">{entries.map((e: any) => shouldShowMessage(e) ? <Message key={e.id} entry={e} active={active} editing={editingEntryId === e.id} editingDraft={editingDraft} setEditingDraft={setEditingDraft} saveEdit={saveEdit} cancelEdit={() => setEditingEntryId("")} startEdit={() => { setEditingEntryId(e.id); setEditingDraft(displayText(e.message)); }} /> : null)}{(isStreaming || streamingContent) && <div className="msg assistant"><Avatar>M</Avatar><div className="message-body"><div className="role">assistant · streaming</div><div className="bubble">{streamingContent ? <Markdown text={streamingContent}/> : <Thinking/>}</div></div></div>}</div> : <div className="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>}</div>
         <form className="composer" onSubmit={send}>{!!files.length && <div className="selected-files">{files.map((file, i) => <div className="selected-file" key={`${file.name}-${i}`}>{file.type.startsWith("image/") ? <img src={URL.createObjectURL(file)} /> : <b>{attachmentIcon(file.name)}</b>}<div><strong>{file.name}</strong><small>{attachmentKind(file.name, file.type)}</small></div><button type="button" onClick={() => setFiles(files.filter((_, x) => x !== i))}><X size={14}/></button></div>)}</div>}<div className="composer-box"><label className="attach"><Paperclip size={19}/><input type="file" multiple onChange={(e) => { setFiles([...files, ...Array.from(e.target.files ?? [])]); e.currentTarget.value = ""; }}/></label><textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder={active ? "Message Memoryhold" : "Create or select a conversation"}/><button type="submit" disabled={!active || !draft.trim()}>Send</button></div></form>
