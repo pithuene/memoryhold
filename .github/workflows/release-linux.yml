@@ -1,0 +1,49 @@
+name: Build Linux app
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  linux:
+    name: Package Linux app
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.19.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check
+        run: pnpm check
+
+      - name: Package Linux deb
+        run: pnpm package:linux:deb
+
+      - name: Archive app bundle
+        run: |
+          cd release
+          tar -czf Memoryhold-linux-x64.tar.gz Memoryhold-linux-x64
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Memoryhold-linux-x64
+          path: |
+            release/Memoryhold-linux-x64.tar.gz
+            release/memoryhold_*_amd64.deb
+          if-no-files-found: error

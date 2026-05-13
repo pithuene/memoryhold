@@ -79,16 +79,22 @@ On first launch, Memoryhold asks you to choose a conversations folder. That fold
 
 Note: raw Electron dev mode may still appear as “Electron” in the macOS Dock/menu bar. The packaged `.app` uses the Memoryhold app identity.
 
-## Package the macOS app
+## Package the desktop app
 
 ```bash
 pnpm package:mac
 open release/Memoryhold-darwin-*/Memoryhold.app
+
+pnpm package:linux
+./release/Memoryhold-linux-*/Memoryhold
+
+pnpm package:linux:deb
+sudo apt install ./release/memoryhold_*_amd64.deb
 ```
 
-The packaged app is currently unsigned and unnotarized, so macOS may require right-click → **Open** the first time.
+The packaged macOS app is currently unsigned and unnotarized, so macOS may require right-click → **Open** the first time.
 
-GitHub Actions also includes a manual/tag-triggered macOS artifact workflow at `.github/workflows/release-mac.yml`.
+GitHub Actions also includes manual/tag-triggered artifact workflows at `.github/workflows/release-mac.yml` and `.github/workflows/release-linux.yml`.
 
 ## Credentials and privacy
 
@@ -131,7 +137,9 @@ EXA_MCP_URL=https://mcp.exa.ai/mcp
 pnpm check          # type-check all workspaces
 pnpm build          # build all workspaces
 pnpm electron:dev   # run desktop dev wrapper
-pnpm package:mac    # build unsigned macOS .app
+pnpm package:mac      # build unsigned macOS .app
+pnpm package:linux        # build Linux app
+pnpm package:linux:deb    # build installable Ubuntu/Debian .deb
 pnpm screenshot     # local Playwright screenshot helper
 ```
 

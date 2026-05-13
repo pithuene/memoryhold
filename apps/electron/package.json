@@ -9,6 +9,8 @@
     "dev": "tsc -p tsconfig.json && node scripts/dev-app.mjs",
     "build": "tsc -p tsconfig.json",
     "package:mac": "node scripts/package-mac.mjs",
+    "package:linux": "node scripts/package-linux.mjs",
+    "package:linux:deb": "node scripts/package-linux-deb.mjs",
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

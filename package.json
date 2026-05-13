@@ -7,6 +7,8 @@
     "dev": "pnpm -r --parallel --filter '!@memoryhold/electron' dev",
     "electron:dev": "pnpm --filter @memoryhold/electron dev",
     "package:mac": "pnpm --filter @memoryhold/electron package:mac",
+    "package:linux": "pnpm --filter @memoryhold/electron package:linux",
+    "package:linux:deb": "pnpm --filter @memoryhold/electron package:linux:deb",
     "build": "pnpm -r build",
     "check": "pnpm -r check",
     "screenshot": "node scripts/screenshot.mjs",
