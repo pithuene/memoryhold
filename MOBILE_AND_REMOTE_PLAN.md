@@ -54,8 +54,8 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] edit/save backend URL
     - [x] test connection button
     - [x] reset to default button
-  - [ ] Add first-run behavior for clients that need an explicit remote server
-    - [ ] if no backend URL is configured and no platform default is available, show setup screen
+  - [x] Add first-run behavior for clients that need an explicit remote server
+    - [x] if no backend URL is configured and no platform default is available, show setup screen
     - [x] include examples such as `http://192.168.1.23:8787`, `http://10.0.2.2:8787`, and HTTPS/VPN URLs
   - [x] Make connection failures user-friendly
     - [x] show unreachable server message
