@@ -13,13 +13,32 @@ interface RuntimeState {
   isStreaming: boolean;
 }
 
+interface RenderedPdfPage {
+  filename: string;
+  pageNumber: number;
+  data: Buffer;
+}
+
+interface AttachmentContextResult {
+  text: string;
+  renderedPdfPages: RenderedPdfPage[];
+}
+
 function isImageAttachment(attachment: UploadedAttachmentRef): boolean {
   return attachment.mimeType?.startsWith("image/") || /\.(png|jpe?g|gif|webp)$/i.test(attachment.filename);
 }
 
-async function userMessage(repo: SessionRepo, slug: string, content: string, attachmentContext: string, attachments: UploadedAttachmentRef[]): Promise<AgentMessage> {
-  const suffix = attachmentContext ? `\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>\n${attachmentContext}\n</MEMORYHOLD_ATTACHMENT_CONTEXT>` : "";
+function isPdfAttachment(attachment: UploadedAttachmentRef): boolean {
+  return attachment.mimeType === "application/pdf" || attachment.filename.toLowerCase().endsWith(".pdf");
+}
+
+async function userMessage(repo: SessionRepo, slug: string, content: string, attachmentContext: AttachmentContextResult, attachments: UploadedAttachmentRef[]): Promise<AgentMessage> {
+  const suffix = attachmentContext.text ? `\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>\n${attachmentContext.text}\n</MEMORYHOLD_ATTACHMENT_CONTEXT>` : "";
   const blocks: any[] = [{ type: "text", text: content + suffix }];
+  for (const page of attachmentContext.renderedPdfPages) {
+    blocks.push({ type: "text", text: `PDF preview image: ${page.filename}, page ${page.pageNumber}` });
+    blocks.push({ type: "image", data: page.data.toString("base64"), mimeType: "image/png" });
+  }
   for (const attachment of attachments.filter(isImageAttachment)) {
     const bytes = await repo.readAttachment(slug, attachment.relativePath);
     blocks.push({ type: "image", data: bytes.toString("base64"), mimeType: attachment.mimeType || "image/jpeg" });
@@ -78,22 +97,28 @@ export class SessionRunner {
     return { queued: false };
   }
 
-  private async buildAttachmentContext(slug: string, attachments: UploadedAttachmentRef[]): Promise<string> {
-    if (!attachments.length) return "";
+  private async buildAttachmentContext(slug: string, attachments: UploadedAttachmentRef[]): Promise<AttachmentContextResult> {
+    if (!attachments.length) return { text: "", renderedPdfPages: [] };
     const textAttachments = attachments.filter((attachment) => !isImageAttachment(attachment));
-    if (!textAttachments.length) return "";
-    const sections: string[] = ["The user attached file(s). Their extracted contents are included below. Use them to answer questions about the files. Image attachments are sent as image inputs separately."]; 
+    if (!textAttachments.length) return { text: "", renderedPdfPages: [] };
+    const sections: string[] = ["The user attached file(s). Their extracted contents are included below. Use them to answer questions about the files. Image attachments are sent as image inputs separately. If PDF text extraction fails or the PDF has no embedded text, rendered preview images of the first pages are sent as image inputs separately."];
+    const renderedPdfPages: RenderedPdfPage[] = [];
     for (const attachment of textAttachments) {
       const header = `Attachment: ${attachment.filename} (${attachment.mimeType || "unknown type"}, ${attachment.relativePath})`;
       try {
         const bytes = await this.repo.readAttachment(slug, attachment.relativePath);
         const lowerName = attachment.filename.toLowerCase();
         const mimeType = attachment.mimeType ?? "";
-        if (mimeType === "application/pdf" || lowerName.endsWith(".pdf")) {
-          const parser = new PDFParse({ data: bytes });
-          const result = await parser.getText();
-          await parser.destroy();
-          sections.push(`${header}\n\n${truncateText(result.text || "[No extractable PDF text found.]")}`);
+        if (isPdfAttachment(attachment)) {
+          const result = await this.extractPdfText(bytes);
+          if (result.text.trim()) {
+            sections.push(`${header}\n\n${truncateText(result.text)}`);
+          } else {
+            const pages = await this.renderPdfPreviewPages(attachment.filename, bytes);
+            renderedPdfPages.push(...pages);
+            const fallback = pages.length ? `[No extractable PDF text found. Rendered ${pages.length} page preview image(s) for vision reading.]` : "[No extractable PDF text found and page preview rendering failed.]";
+            sections.push(`${header}\n\n${fallback}`);
+          }
         } else if (mimeType.startsWith("text/") || /\.(md|txt|csv|json|xml|html|log|ts|tsx|js|jsx|py|rs|go|java|c|cpp|h)$/i.test(lowerName)) {
           sections.push(`${header}\n\n${truncateText(bytes.toString("utf8"))}`);
         } else {
@@ -101,10 +126,43 @@ export class SessionRunner {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        sections.push(`${header}\n\n[Could not read/extract attachment: ${message}]`);
+        let rendered = 0;
+        if (isPdfAttachment(attachment)) {
+          try {
+            const bytes = await this.repo.readAttachment(slug, attachment.relativePath);
+            const pages = await this.renderPdfPreviewPages(attachment.filename, bytes);
+            renderedPdfPages.push(...pages);
+            rendered = pages.length;
+          } catch {
+            rendered = 0;
+          }
+        }
+        sections.push(`${header}\n\n[Could not read/extract attachment: ${message}${rendered ? `. Rendered ${rendered} page preview image(s) for vision reading.` : ""}]`);
       }
     }
-    return sections.join("\n\n---\n\n");
+    return { text: sections.join("\n\n---\n\n"), renderedPdfPages };
+  }
+
+  private async extractPdfText(bytes: Buffer): Promise<{ text: string }> {
+    const parser = new PDFParse({ data: new Uint8Array(bytes) });
+    try {
+      const result = await parser.getText();
+      return { text: result.text ?? "" };
+    } finally {
+      await parser.destroy();
+    }
+  }
+
+  private async renderPdfPreviewPages(filename: string, bytes: Buffer, maxPages = 5): Promise<RenderedPdfPage[]> {
+    const parser = new PDFParse({ data: new Uint8Array(bytes) });
+    try {
+      const result = await parser.getScreenshot({ first: maxPages, desiredWidth: 1400, imageBuffer: true, imageDataUrl: false });
+      return result.pages
+        .filter((page) => page.data)
+        .map((page) => ({ filename, pageNumber: page.pageNumber, data: Buffer.from(page.data!) }));
+    } finally {
+      await parser.destroy();
+    }
   }
 
   private async getOrCreateState(slug: string, options: { model?: { provider: string; modelId: string }; thinkingLevel?: string }): Promise<RuntimeState> {
