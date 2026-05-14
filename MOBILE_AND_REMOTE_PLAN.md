@@ -257,13 +257,13 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [ ] large enough attachment upload works
     - [ ] SSE is not buffered by proxy
 
-- [ ] 11. Gradual shared-core refactor for future local mobile
-  - [ ] Extract platform-neutral domain helpers from `apps/web/src/main.tsx`
+- [x] 11. Gradual shared-core refactor for future local mobile
+  - [x] Extract platform-neutral domain helpers from `apps/web/src/main.tsx`
     - [x] content rendering helpers
     - [x] attachment kind/icon helpers
-    - [ ] settings persistence helpers where appropriate
+    - [x] settings persistence helpers where appropriate
     - [x] API request helpers
-  - [ ] Keep shared code environment-agnostic
+  - [x] Keep shared code environment-agnostic
     - [x] no direct DOM dependencies unless in UI package
     - [x] no Node filesystem dependencies
     - [x] no Electron dependencies

@@ -10,17 +10,14 @@ import DOMPurify from "dompurify";
 import "katex/dist/katex.min.css";
 import { ANDROID_EMULATOR_API_BASE_URL, DEFAULT_API_BASE_URL, MemoryholdApi, initialBackendToken, initialBackendUrl, isCapacitorRuntime, normalizeApiBaseUrl, saveBackendToken, saveBackendUrl, validateApiBaseUrl, type HealthResult, type Provider } from "./api";
 import { attachmentIcon, attachmentKind, displayText, isImage, messageAttachments, shouldShowMessage } from "./message-utils";
+import { savedModelSettings, saveModelSettings } from "./settings";
 import "./styles.css";
 
 marked.use(markedKatex({ throwOnError: false, displayMode: false, nonStandard: true }));
 
-const SETTINGS_KEY = "memoryhold.settings";
-
 type View = "chat" | "settings";
 
 function cn(...items: Array<string | false | undefined>) { return items.filter(Boolean).join(" "); }
-function savedSettings(): { provider?: string; modelId?: string; thinkingLevel?: string } { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"); } catch { return {}; } }
-function saveSettings(provider: string, modelId: string, thinkingLevel: string) { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ provider, modelId, thinkingLevel })); }
 function slugFromUrl() { return decodeURIComponent(window.location.pathname.match(/^\/c\/([^/]+)\/?$/)?.[1] ?? ""); }
 function readableError(message: string) {
   const match = message.match(/^(.*?):\s*(\{[\s\S]*\})\s*$/);
@@ -109,7 +106,7 @@ function App() {
         setSessions(ss);
         setOauthProviders(oauth);
         setProviders(ps);
-        const saved = savedSettings();
+        const saved = savedModelSettings();
         const p = (saved.provider && ps.find((x: Provider) => x.id === saved.provider)) || ps.find((x: Provider) => x.id === "openai-codex") || ps.find((x: Provider) => x.id === "openai") || ps[0];
         const model = p?.models.find((m: any) => m.id === saved.modelId)?.id ?? p?.models[0]?.id ?? "";
         setSelectedProvider(p?.id ?? "");
@@ -123,7 +120,7 @@ function App() {
   }, [apiBaseUrl, apiToken]);
 
   useEffect(() => { const slug = slugFromUrl(); if (slug && !active && sessions.length) { const s = sessions.find((x) => x.slug === slug); if (s) void openSession(s, false); } }, [sessions]);
-  useEffect(() => { saveSettings(selectedProvider, selectedModel, thinkingLevel); }, [selectedProvider, selectedModel, thinkingLevel]);
+  useEffect(() => { saveModelSettings(selectedProvider, selectedModel, thinkingLevel); }, [selectedProvider, selectedModel, thinkingLevel]);
   useEffect(() => { messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight }); }, [entries, streamingContent]);
   useEffect(() => { if (renamingSlug) renameRef.current?.select(); }, [renamingSlug]);
   useEffect(() => {
