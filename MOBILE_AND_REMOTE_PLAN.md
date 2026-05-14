@@ -1,0 +1,298 @@
+# Memoryhold Mobile + Remote Server Plan
+
+Goal: add an Android Capacitor app that can connect to a Memoryhold server, add an optional remote-server mode for Electron, and gradually move the codebase toward an Obsidian-style shared-core architecture that could later support a fully local mobile app.
+
+- [ ] 1. Define target architecture and compatibility boundaries
+  - [ ] Document the three supported runtime modes
+    - [ ] Browser web app connecting to a configured Memoryhold server
+    - [ ] Electron desktop app either launching a local backend or connecting to a remote backend
+    - [ ] Capacitor Android app connecting to a configured Memoryhold server
+  - [ ] Preserve current local-first desktop behavior as the default Electron mode
+  - [ ] Treat fully local mobile as a later architecture target, not part of the first Android release
+  - [ ] Identify code that can eventually become platform-neutral shared core
+    - [ ] Session metadata and transcript types
+    - [ ] API client types
+    - [ ] Settings model
+    - [ ] Attachment metadata helpers
+    - [ ] Markdown/message rendering helpers where practical
+  - [ ] Identify code that should remain platform-specific
+    - [ ] Node/Hono backend runtime
+    - [ ] Electron folder picker and child process management
+    - [ ] Capacitor native plugins and Android permissions
+    - [ ] Filesystem/storage adapters for future local mobile mode
+
+- [x] 2. Add a shared API client/settings foundation
+  - [x] Create a shared package or module for Memoryhold client configuration
+    - [x] API base URL normalization
+    - [x] `/api/health` connectivity check
+    - [x] persisted backend connection settings
+    - [x] clear error messages for unreachable/misconfigured servers
+  - [x] Replace direct frontend usage of the global `API` constant with a small API client layer
+    - [x] sessions list/create/load/update/delete
+    - [x] message send/edit
+    - [x] attachments upload/read URL generation
+    - [x] providers list
+    - [x] OAuth provider/status/start/complete
+    - [x] SSE event URL construction
+  - [x] Keep API client browser-compatible
+    - [x] no Node-only imports
+    - [x] no Electron-only assumptions
+    - [x] usable by web, Electron renderer, and Capacitor WebView
+  - [x] Add typed API response handling where useful
+    - [x] successful JSON responses
+    - [x] non-OK text errors
+    - [x] network failure errors
+    - [x] server health/status result
+
+- [ ] 3. Add runtime backend configuration to the web UI
+  - [ ] Add a connection settings model
+    - [x] backend URL
+    - [ ] connection mode label, e.g. `local`, `remote`, `mobile`
+    - [ ] last successful health check timestamp
+  - [ ] Add a connection settings screen or settings section
+    - [x] display current backend URL
+    - [x] edit/save backend URL
+    - [x] test connection button
+    - [ ] reset to default button
+  - [ ] Add first-run behavior for clients that need an explicit remote server
+    - [ ] if no backend URL is configured and no platform default is available, show setup screen
+    - [x] include examples such as `http://192.168.1.23:8787`, `http://10.0.2.2:8787`, and HTTPS/VPN URLs
+  - [ ] Make connection failures user-friendly
+    - [x] show unreachable server message
+    - [ ] show invalid URL message
+    - [x] keep settings accessible even when API calls fail
+  - [x] Preserve current browser dev default
+    - [x] default to `VITE_API_URL` when present
+    - [x] otherwise default to `http://localhost:8787` for normal web development
+
+- [ ] 4. Prepare the backend for remote clients
+  - [ ] Keep current local development behavior working
+  - [ ] Review CORS behavior
+    - [ ] keep permissive CORS for local/dev if desired
+    - [ ] add optional environment variables for production CORS restrictions if needed
+  - [ ] Add optional app-level access control before encouraging remote exposure
+    - [ ] optional bearer token or shared secret environment variable
+    - [ ] frontend setting for server token if enabled
+    - [ ] clear 401/403 handling in the API client
+  - [ ] Document recommended deployment modes
+    - [ ] LAN-only development
+    - [ ] Tailscale/VPN
+    - [ ] HTTPS reverse proxy
+    - [ ] do not expose unauthenticated server directly to the public internet
+  - [ ] Verify remote-client-sensitive endpoints
+    - [ ] SSE streaming works across LAN/VPN/reverse proxy
+    - [ ] attachment upload size behavior is acceptable
+    - [ ] OAuth flows still work when the UI and server are on different hosts
+    - [ ] generated attachment URLs use the configured API base URL correctly
+
+- [ ] 5. Add Electron remote-server mode
+  - [ ] Extend Electron desktop config
+    - [ ] local backend mode with conversations directory, current default
+    - [ ] remote backend mode with backend URL and optional token
+  - [ ] Add startup decision flow
+    - [ ] if local mode, launch backend as today
+    - [ ] if remote mode, do not launch backend
+    - [ ] validate remote server health before loading the UI, or load UI with a visible connection warning
+  - [ ] Add menu/settings actions
+    - [ ] switch to local backend mode
+    - [ ] switch to remote backend mode
+    - [ ] edit remote server URL
+    - [ ] test remote server connection
+    - [ ] choose local conversations folder remains available in local mode
+  - [ ] Pass platform defaults into the renderer
+    - [ ] local mode default API URL: `http://localhost:<port>`
+    - [ ] remote mode default API URL: configured remote URL
+    - [ ] keep renderer settings override possible where appropriate
+  - [ ] Update Electron dev workflow
+    - [ ] test local backend mode
+    - [ ] test remote backend mode against an already-running server
+    - [ ] ensure server child process is not started in remote mode
+  - [ ] Update Electron packaging behavior
+    - [ ] packaged app still includes backend for local mode
+    - [ ] remote mode does not require local conversations folder selection
+    - [ ] switching modes persists across restarts
+
+- [ ] 6. Make the web UI mobile-friendly
+  - [ ] Replace fixed desktop sidebar behavior on small screens
+    - [ ] use drawer/sidebar overlay on mobile
+    - [ ] add hamburger/menu button
+    - [ ] close drawer after selecting a chat
+    - [ ] close drawer with backdrop tap
+  - [ ] Improve mobile top bar
+    - [ ] show active chat title
+    - [ ] expose new chat/settings access
+    - [ ] avoid overflowing model/provider text
+  - [ ] Improve mobile composer
+    - [ ] respect safe-area insets
+    - [ ] remain usable with Android keyboard open
+    - [ ] use touch-friendly buttons
+    - [ ] keep attachment chips manageable on narrow screens
+  - [ ] Improve mobile message view
+    - [ ] reduce padding
+    - [ ] allow markdown/code blocks to scroll horizontally
+    - [ ] make user bubbles fit small screens
+    - [ ] ensure streaming indicator remains visible
+  - [ ] Improve mobile settings and dialogs
+    - [ ] single-column settings layout
+    - [ ] full-width controls where appropriate
+    - [ ] dialogs fit small screens
+  - [ ] Replace desktop-only context menu paths where needed
+    - [ ] expose rename/delete via visible mobile actions or a touch-friendly overflow menu
+    - [ ] keep Radix context menu for desktop/right-click
+  - [ ] Test responsive breakpoints
+    - [ ] 360px wide phone
+    - [ ] 390px wide phone
+    - [ ] tablet-ish widths
+    - [ ] desktop unchanged
+
+- [ ] 7. Add Capacitor Android app shell
+  - [ ] Decide project layout
+    - [ ] prefer `apps/mobile` as a Capacitor wrapper around `apps/web/dist`
+    - [ ] keep `apps/web` as the shared renderer app
+  - [ ] Add Capacitor dependencies
+    - [ ] `@capacitor/core`
+    - [ ] `@capacitor/cli`
+    - [ ] `@capacitor/android`
+  - [ ] Create Capacitor config
+    - [ ] app id, e.g. `com.memoryhold.app`
+    - [ ] app name `Memoryhold`
+    - [ ] web dir pointing at built web output
+    - [ ] Android scheme/configuration
+  - [ ] Add Android platform
+    - [ ] generated Android project under `apps/mobile/android`
+    - [ ] app icon/splash assets from existing Memoryhold assets
+    - [ ] internet permission
+    - [ ] cleartext HTTP allowed for dev builds if needed
+  - [ ] Add package scripts
+    - [ ] build web
+    - [ ] sync Capacitor Android
+    - [ ] open Android Studio
+    - [ ] run on emulator/device
+  - [ ] Add Android-specific default backend hints
+    - [ ] emulator: `http://10.0.2.2:8787`
+    - [ ] physical device: LAN IP of server machine
+    - [ ] release recommendation: HTTPS/VPN
+
+- [ ] 8. Add mobile platform integration polish
+  - [ ] Detect Capacitor runtime in the renderer
+    - [ ] show mobile-specific backend setup guidance
+    - [ ] use appropriate default examples
+  - [ ] Handle Android back button
+    - [ ] close drawer first
+    - [ ] close dialog second
+    - [ ] navigate from settings back to chat
+    - [ ] otherwise allow app background/exit behavior
+  - [ ] Improve external browser/OAuth behavior
+    - [ ] keep paste-code/manual callback flow for v1
+    - [ ] open auth URLs in system browser or Capacitor Browser plugin if added
+    - [ ] document limitations
+  - [ ] Validate file attachments on Android
+    - [ ] regular file input works for images/documents
+    - [ ] uploads to remote backend work
+    - [ ] attachment previews render from remote backend URLs
+  - [ ] Consider optional Capacitor plugins after basic app works
+    - [ ] Browser plugin for OAuth URL opening
+    - [ ] App plugin for back button events
+    - [ ] Splash Screen plugin
+    - [ ] Status Bar plugin
+    - [ ] Filesystem/Camera plugins only if needed later
+
+- [ ] 9. Documentation and developer workflow
+  - [ ] Update README architecture section
+    - [ ] web client/server model
+    - [ ] Electron local mode
+    - [ ] Electron remote mode
+    - [ ] Android remote-client mode
+  - [ ] Add mobile development instructions
+    - [ ] Android Studio requirement
+    - [ ] emulator setup
+    - [ ] physical device setup
+    - [ ] backend URL examples
+    - [ ] cleartext HTTP caveat
+  - [ ] Add remote server instructions
+    - [ ] run server with `CONVERSATIONS_DIR`
+    - [ ] optional port configuration
+    - [ ] optional token/auth if implemented
+    - [ ] VPN/HTTPS recommendation
+  - [ ] Add Electron remote mode instructions
+    - [ ] how to switch modes
+    - [ ] how config is persisted
+    - [ ] how to return to local mode
+  - [ ] Add troubleshooting section
+    - [ ] Android cannot reach `localhost`
+    - [ ] server blocked by firewall
+    - [ ] CORS/auth failures
+    - [ ] SSE/reverse proxy buffering problems
+    - [ ] OAuth callback issues
+
+- [ ] 10. Testing and acceptance checklist
+  - [ ] Existing browser dev mode still works
+    - [ ] local server on `localhost:8787`
+    - [ ] Vite web app on `localhost:5173`
+    - [ ] sessions, messages, streaming, attachments, settings
+  - [ ] Existing Electron local mode still works
+    - [ ] first-launch folder picker
+    - [ ] backend child process starts
+    - [ ] packaged app can serve built web app
+  - [ ] Electron remote mode works
+    - [ ] no backend child process starts
+    - [ ] remote URL persists
+    - [ ] health check and chat operations work
+    - [ ] switching back to local mode works
+  - [ ] Android app works against LAN backend
+    - [ ] configure backend URL
+    - [ ] health check succeeds
+    - [ ] create/open/delete/rename sessions
+    - [ ] send/edit messages
+    - [ ] receive streaming updates
+    - [ ] upload and view attachments
+    - [ ] settings and OAuth flow remain usable
+  - [ ] Mobile responsive UI is acceptable
+    - [ ] no unusable horizontal overflow in normal chat UI
+    - [ ] composer usable with keyboard open
+    - [ ] drawer and dialogs work by touch
+  - [ ] Remote deployment sanity checks pass
+    - [ ] VPN URL works
+    - [ ] HTTPS reverse proxy works if configured
+    - [ ] large enough attachment upload works
+    - [ ] SSE is not buffered by proxy
+
+- [ ] 11. Gradual shared-core refactor for future local mobile
+  - [ ] Extract platform-neutral domain helpers from `apps/web/src/main.tsx`
+    - [ ] content rendering helpers
+    - [ ] attachment kind/icon helpers
+    - [ ] settings persistence helpers where appropriate
+    - [ ] API request helpers
+  - [ ] Keep shared code environment-agnostic
+    - [ ] no direct DOM dependencies unless in UI package
+    - [ ] no Node filesystem dependencies
+    - [ ] no Electron dependencies
+    - [ ] no Capacitor dependencies in core modules
+  - [ ] Define future storage adapter boundary
+    - [ ] list sessions
+    - [ ] create session
+    - [ ] read/write transcript entries
+    - [ ] save/read attachments
+    - [ ] store credentials/settings
+  - [ ] Define future execution adapter boundary
+    - [ ] send message
+    - [ ] stream updates
+    - [ ] tool execution capabilities
+    - [ ] provider credential capabilities
+  - [ ] Keep server implementation as one adapter
+    - [ ] current Hono backend remains canonical for now
+    - [ ] API client is the remote adapter
+  - [ ] Leave room for future mobile-local adapter
+    - [ ] Capacitor Filesystem/app storage
+    - [ ] secure credential storage
+    - [ ] mobile-compatible provider execution strategy
+    - [ ] native/plugin-based tools if needed
+
+- [ ] 12. Release sequencing
+  - [ ] Part 1: API client and backend URL settings
+  - [ ] Part 2: Electron remote-server mode
+  - [ ] Part 3: mobile-responsive UI pass
+  - [ ] Part 4: Capacitor Android wrapper and dev build
+  - [ ] Part 5: mobile platform polish and docs
+  - [ ] Part 6: security hardening for remote use
+  - [ ] Part 7: ongoing shared-core extraction for future local mobile

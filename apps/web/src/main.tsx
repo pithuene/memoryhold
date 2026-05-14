@@ -8,14 +8,13 @@ import { marked } from "marked";
 import markedKatex from "marked-katex-extension";
 import DOMPurify from "dompurify";
 import "katex/dist/katex.min.css";
+import { DEFAULT_API_BASE_URL, MemoryholdApi, normalizeApiBaseUrl, saveBackendUrl, savedBackendUrl, type HealthResult, type Provider } from "./api";
 import "./styles.css";
 
 marked.use(markedKatex({ throwOnError: false, displayMode: false, nonStandard: true }));
 
-const API = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
 const SETTINGS_KEY = "memoryhold.settings";
 
-type Provider = { id: string; models: Array<{ id: string; name: string }> };
 type View = "chat" | "settings";
 
 function cn(...items: Array<string | false | undefined>) { return items.filter(Boolean).join(" "); }
@@ -73,6 +72,8 @@ function App() {
   const [loginId, setLoginId] = useState("");
   const [callbackInput, setCallbackInput] = useState("");
   const [view, setView] = useState<View>("chat");
+  const [apiBaseUrl, setApiBaseUrl] = useState(savedBackendUrl);
+  const [connectionStatus, setConnectionStatus] = useState<HealthResult | undefined>();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState("");
   const [editingDraft, setEditingDraft] = useState("");
@@ -85,19 +86,20 @@ function App() {
   const activeRef = useRef<SessionMetadata | undefined>(undefined);
   activeRef.current = active;
   const showError = (message: string) => setErrorMessage(readableError(message));
+  const api = useMemo(() => new MemoryholdApi(apiBaseUrl), [apiBaseUrl]);
 
-  const loadSessions = async () => setSessions(await fetch(`${API}/api/sessions`).then((r) => r.json()));
-  const loadOAuth = async () => setOauthProviders(await fetch(`${API}/api/oauth/providers`).then((r) => r.json()));
+  const loadSessions = async () => setSessions(await api.sessions());
+  const loadOAuth = async () => setOauthProviders(await api.oauthProviders());
 
-  const openSession = async (session: SessionMetadata, updateHistory = true) => {
-    if (renamingSlug) return;
+  const openSession = async (session: SessionMetadata, updateHistory = true, force = false) => {
+    if (renamingSlug && !force) return;
     eventSource.current?.close();
     setStreamingContent(""); setIsStreaming(false); setErrorMessage(""); setActive(session); setView("chat");
     if (updateHistory) window.history.pushState({}, "", `/c/${encodeURIComponent(session.slug)}`);
-    const data = await fetch(`${API}/api/sessions/${session.slug}`).then((r) => r.json());
+    const data = await api.session(session.slug);
     setEntries(data.entries);
     requestAnimationFrame(() => messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight }));
-    const es = new EventSource(`${API}/api/sessions/${session.slug}/events`);
+    const es = new EventSource(api.eventsUrl(session.slug));
     eventSource.current = es;
     es.onmessage = (msg) => {
       const event = JSON.parse(msg.data);
@@ -109,7 +111,33 @@ function App() {
     };
   };
 
-  useEffect(() => { document.documentElement.classList.toggle("electron", new URLSearchParams(location.search).get("memoryholdElectron") === "1"); void loadSessions(); void loadOAuth(); (async () => { const ps = await fetch(`${API}/api/providers`).then((r) => r.json()); setProviders(ps); const saved = savedSettings(); const p = (saved.provider && ps.find((x: Provider) => x.id === saved.provider)) || ps.find((x: Provider) => x.id === "openai-codex") || ps.find((x: Provider) => x.id === "openai") || ps[0]; const model = p?.models.find((m: any) => m.id === saved.modelId)?.id ?? p?.models[0]?.id ?? ""; setSelectedProvider(p?.id ?? ""); setSelectedModel(model); setThinkingLevel(saved.thinkingLevel ?? "off"); })(); const pop = () => { const s = sessions.find((x) => x.slug === slugFromUrl()); if (s) void openSession(s, false); }; addEventListener("popstate", pop); return () => { removeEventListener("popstate", pop); eventSource.current?.close(); }; }, []);
+  useEffect(() => { document.documentElement.classList.toggle("electron", new URLSearchParams(location.search).get("memoryholdElectron") === "1"); const pop = () => { const s = sessions.find((x) => x.slug === slugFromUrl()); if (s) void openSession(s, false); }; addEventListener("popstate", pop); return () => { removeEventListener("popstate", pop); eventSource.current?.close(); }; }, []);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const health = await api.health();
+      if (cancelled) return;
+      setConnectionStatus(health);
+      if (!health.ok) { showError(`Cannot reach Memoryhold server at ${health.url}: ${health.error}`); return; }
+      try {
+        const [ss, oauth, ps] = await Promise.all([api.sessions(), api.oauthProviders(), api.providers()]);
+        if (cancelled) return;
+        setSessions(ss);
+        setOauthProviders(oauth);
+        setProviders(ps);
+        const saved = savedSettings();
+        const p = (saved.provider && ps.find((x: Provider) => x.id === saved.provider)) || ps.find((x: Provider) => x.id === "openai-codex") || ps.find((x: Provider) => x.id === "openai") || ps[0];
+        const model = p?.models.find((m: any) => m.id === saved.modelId)?.id ?? p?.models[0]?.id ?? "";
+        setSelectedProvider(p?.id ?? "");
+        setSelectedModel(model);
+        setThinkingLevel(saved.thinkingLevel ?? "off");
+      } catch (error) {
+        if (!cancelled) showError(error instanceof Error ? error.message : String(error));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [apiBaseUrl]);
+
   useEffect(() => { const slug = slugFromUrl(); if (slug && !active && sessions.length) { const s = sessions.find((x) => x.slug === slug); if (s) void openSession(s, false); } }, [sessions]);
   useEffect(() => { saveSettings(selectedProvider, selectedModel, thinkingLevel); }, [selectedProvider, selectedModel, thinkingLevel]);
   useEffect(() => { messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight }); }, [entries, streamingContent]);
@@ -120,14 +148,14 @@ function App() {
     return () => window.clearTimeout(timeout);
   }, [errorMessage]);
 
-  const newSession = async () => { const metadata = await fetch(`${API}/api/sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then((r) => r.json()); await loadSessions(); await openSession(metadata); };
-  const saveRename = async (session: SessionMetadata) => { const title = renamingTitle.trim(); if (!title || title === session.title) { setRenamingSlug(""); return; } const r = await fetch(`${API}/api/sessions/${session.slug}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) }); if (!r.ok) return showError(await r.text()); const m = await r.json(); setSessions((ss) => ss.map((x) => x.slug === m.slug ? m : x)); if (active?.slug === m.slug) setActive(m); setRenamingSlug(""); };
-  const confirmDelete = async () => { if (!deleteCandidate) return; const r = await fetch(`${API}/api/sessions/${deleteCandidate.slug}`, { method: "DELETE" }); if (!r.ok) return showError(await r.text()); setSessions((ss) => ss.filter((x) => x.slug !== deleteCandidate.slug)); if (active?.slug === deleteCandidate.slug) { eventSource.current?.close(); setActive(undefined); setEntries([]); window.history.pushState({}, "", "/"); } setDeleteCandidate(undefined); };
-  const startOAuth = async (id: string) => { setErrorMessage(""); const result = await fetch(`${API}/api/oauth/${id}/start`, { method: "POST" }).then((r) => r.json()); if (result.error) return showError(result.error); setLoginId(result.loginId); if (result.authUrl) window.open(result.authUrl, "_blank"); };
-  const completeOAuth = async () => { if (!loginId || !callbackInput.trim()) return; await fetch(`${API}/api/oauth/${loginId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: callbackInput }) }); for (let i = 0; i < 30; i++) { const s = await fetch(`${API}/api/oauth/${loginId}/status`).then((r) => r.json()); if (s.status === "done") { setLoginId(""); setCallbackInput(""); await loadOAuth(); return; } if (s.status === "error") return showError(s.error); await new Promise((r) => setTimeout(r, 500)); } };
+  const newSession = async () => { const metadata = await api.createSession(); await loadSessions(); await openSession(metadata); };
+  const saveRename = async (session: SessionMetadata) => { const title = renamingTitle.trim(); if (!title || title === session.title) { setRenamingSlug(""); return; } try { const m = await api.renameSession(session.slug, title); setSessions((ss) => ss.map((x) => x.slug === session.slug || x.slug === m.slug ? m : x)); setRenamingSlug(""); if (active?.slug === session.slug) await openSession(m, true, true); else await loadSessions(); } catch (error) { showError(error instanceof Error ? error.message : String(error)); } };
+  const confirmDelete = async () => { if (!deleteCandidate) return; try { await api.deleteSession(deleteCandidate.slug); setSessions((ss) => ss.filter((x) => x.slug !== deleteCandidate.slug)); if (active?.slug === deleteCandidate.slug) { eventSource.current?.close(); setActive(undefined); setEntries([]); window.history.pushState({}, "", "/"); } setDeleteCandidate(undefined); } catch (error) { showError(error instanceof Error ? error.message : String(error)); } };
+  const startOAuth = async (id: string) => { setErrorMessage(""); const result = await api.startOAuth(id); if (result.error) return showError(result.error); setLoginId(result.loginId); if (result.authUrl) window.open(result.authUrl, "_blank"); };
+  const completeOAuth = async () => { if (!loginId || !callbackInput.trim()) return; await api.completeOAuth(loginId, callbackInput); for (let i = 0; i < 30; i++) { const s = await api.oauthStatus(loginId); if (s.status === "done") { setLoginId(""); setCallbackInput(""); await loadOAuth(); return; } if (s.status === "error") return showError(s.error); await new Promise((r) => setTimeout(r, 500)); } };
 
-  const send = async (ev: React.FormEvent) => { ev.preventDefault(); if (!active || !draft.trim()) return; setErrorMessage(""); const content = draft; const outgoing = files; setDraft(""); setFiles([]); let attachments: any[] = []; if (outgoing.length) { const form = new FormData(); outgoing.forEach((f) => form.append("files", f)); attachments = (await fetch(`${API}/api/sessions/${active.slug}/attachments`, { method: "POST", body: form }).then((r) => r.json())).attachments; } const r = await fetch(`${API}/api/sessions/${active.slug}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, attachments, model: selectedProvider && selectedModel ? { provider: selectedProvider, modelId: selectedModel } : undefined, thinkingLevel }) }); if (!r.ok) showError(await r.text()); };
-  const saveEdit = async (entry: any) => { if (!active || !editingDraft.trim()) return; const r = await fetch(`${API}/api/sessions/${active.slug}/messages/${entry.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editingDraft.trim(), model: selectedProvider && selectedModel ? { provider: selectedProvider, modelId: selectedModel } : undefined, thinkingLevel }) }); setEditingEntryId(""); setEditingDraft(""); if (!r.ok) return showError(await r.text()); await openSession(active, false); };
+  const send = async (ev: React.FormEvent) => { ev.preventDefault(); if (!active || !draft.trim()) return; setErrorMessage(""); const content = draft; const outgoing = files; setDraft(""); setFiles([]); try { let attachments: any[] = []; if (outgoing.length) attachments = (await api.uploadAttachments(active.slug, outgoing)).attachments; await api.sendMessage(active.slug, { content, attachments, model: selectedProvider && selectedModel ? { provider: selectedProvider, modelId: selectedModel } : undefined, thinkingLevel }); } catch (error) { showError(error instanceof Error ? error.message : String(error)); } };
+  const saveEdit = async (entry: any) => { if (!active || !editingDraft.trim()) return; try { await api.editMessage(active.slug, entry.id, { content: editingDraft.trim(), model: selectedProvider && selectedModel ? { provider: selectedProvider, modelId: selectedModel } : undefined, thinkingLevel }); setEditingEntryId(""); setEditingDraft(""); await openSession(active, false); } catch (error) { showError(error instanceof Error ? error.message : String(error)); } };
 
   return <div className={cn("app", sidebarCollapsed && "collapsed")}>
     <aside className="sidebar">
@@ -143,8 +171,8 @@ function App() {
     <main className="main">
       <header className="topbar"><div className="top-left">{sidebarCollapsed && <button className="icon ghost" onClick={() => setSidebarCollapsed(false)}><PanelLeftOpen size={18}/></button>}<div><strong>{view === "settings" ? "Settings" : active?.title ?? "No conversation selected"}</strong><small>{view === "settings" ? "Accounts, providers, and defaults" : `${selectedProvider}${selectedModel ? ` / ${selectedModel}` : ""}`}</small></div></div><span className="status">{isStreaming ? "Streaming" : "Ready"}</span></header>
       {errorMessage && <div className="error" role="alert"><span>{errorMessage}</span><button type="button" aria-label="Dismiss error" onClick={() => setErrorMessage("")}><X size={15}/></button></div>}
-      {view === "settings" ? <SettingsView oauthProviders={oauthProviders} startOAuth={startOAuth} loginId={loginId} callbackInput={callbackInput} setCallbackInput={setCallbackInput} completeOAuth={completeOAuth} providers={providers} selectedProvider={selectedProvider} setSelectedProvider={(p: string) => { setSelectedProvider(p); setSelectedModel(providers.find((x) => x.id === p)?.models[0]?.id ?? ""); }} selectedModel={selectedModel} setSelectedModel={setSelectedModel} thinkingLevel={thinkingLevel} setThinkingLevel={setThinkingLevel}/> : <>
-        <div className="messages" ref={messagesRef}>{active ? <div className="thread">{entries.map((e: any) => shouldShowMessage(e) ? <Message key={e.id} entry={e} active={active} editing={editingEntryId === e.id} editingDraft={editingDraft} setEditingDraft={setEditingDraft} saveEdit={saveEdit} cancelEdit={() => setEditingEntryId("")} startEdit={() => { setEditingEntryId(e.id); setEditingDraft(displayText(e.message)); }} /> : null)}{(isStreaming || streamingContent) && <div className="msg assistant"><Avatar>M</Avatar><div className="message-body"><div className="role">assistant · streaming</div><div className="bubble">{streamingContent ? <Markdown text={streamingContent}/> : <Thinking/>}</div></div></div>}</div> : <div className="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>}</div>
+      {view === "settings" ? <SettingsView oauthProviders={oauthProviders} startOAuth={startOAuth} loginId={loginId} callbackInput={callbackInput} setCallbackInput={setCallbackInput} completeOAuth={completeOAuth} providers={providers} selectedProvider={selectedProvider} setSelectedProvider={(p: string) => { setSelectedProvider(p); setSelectedModel(providers.find((x) => x.id === p)?.models[0]?.id ?? ""); }} selectedModel={selectedModel} setSelectedModel={setSelectedModel} thinkingLevel={thinkingLevel} setThinkingLevel={setThinkingLevel} apiBaseUrl={apiBaseUrl} connectionStatus={connectionStatus} setConnectionStatus={setConnectionStatus} saveBackend={(url: string) => { const normalized = normalizeApiBaseUrl(url); saveBackendUrl(normalized); setApiBaseUrl(normalized || DEFAULT_API_BASE_URL); setSessions([]); setActive(undefined); setEntries([]); eventSource.current?.close(); }}/> : <>
+        <div className="messages" ref={messagesRef}>{active ? <div className="thread">{entries.map((e: any) => shouldShowMessage(e) ? <Message key={e.id} entry={e} active={active} api={api} editing={editingEntryId === e.id} editingDraft={editingDraft} setEditingDraft={setEditingDraft} saveEdit={saveEdit} cancelEdit={() => setEditingEntryId("")} startEdit={() => { setEditingEntryId(e.id); setEditingDraft(displayText(e.message)); }} /> : null)}{(isStreaming || streamingContent) && <div className="msg assistant"><Avatar>M</Avatar><div className="message-body"><div className="role">assistant · streaming</div><div className="bubble">{streamingContent ? <Markdown text={streamingContent}/> : <Thinking/>}</div></div></div>}</div> : <div className="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>}</div>
         <form className="composer" onSubmit={send}>{!!files.length && <div className="selected-files">{files.map((file, i) => <div className="selected-file" key={`${file.name}-${i}`}>{file.type.startsWith("image/") ? <img src={URL.createObjectURL(file)} /> : <b>{attachmentIcon(file.name)}</b>}<div><strong>{file.name}</strong><small>{attachmentKind(file.name, file.type)}</small></div><button type="button" onClick={() => setFiles(files.filter((_, x) => x !== i))}><X size={14}/></button></div>)}</div>}<div className="composer-box"><label className="attach"><Paperclip size={19}/><input type="file" multiple onChange={(e) => { setFiles([...files, ...Array.from(e.target.files ?? [])]); e.currentTarget.value = ""; }}/></label><textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder={active ? "Message Memoryhold" : "Create or select a conversation"}/><button type="submit" disabled={!active || !draft.trim()}>Send</button></div></form>
       </>}
     </main>
@@ -152,11 +180,22 @@ function App() {
   </div>;
 }
 
-function SettingsView(props: any) { return <div className="settings-page"><div className="settings-inner"><div className="settings-hero"><h1>Settings</h1><p>Connect provider accounts and choose the default model for new messages.</p></div><section className="card"><h2>Accounts</h2><p>Credentials are stored on the backend in your local conversations directory.</p>{props.oauthProviders.map((p: any) => <div className="account-row" key={p.id}><div><strong>{p.name}</strong><small>{p.authenticated ? "Connected" : "Not connected"}</small></div><button className={cn("button", p.authenticated ? "success" : "secondary")} onClick={() => props.startOAuth(p.id)}>{p.authenticated ? "Reconnect" : "Connect"}</button></div>)}{props.loginId && <><p><small>Browser opened. If callback does not complete, paste redirect URL/code:</small></p><textarea className="oauth-textarea" value={props.callbackInput} onChange={(e) => props.setCallbackInput(e.target.value)}/><button className="button" onClick={props.completeOAuth}>Complete login</button></>}</section><section className="card"><h2>Model defaults</h2><p>These settings are sent with each message and recorded in the conversation timeline.</p><div className="settings-grid"><select value={props.selectedProvider} onChange={(e) => props.setSelectedProvider(e.target.value)}>{props.providers.map((p: any) => <option key={p.id} value={p.id}>{p.id}</option>)}</select><select value={props.selectedModel} onChange={(e) => props.setSelectedModel(e.target.value)}>{props.providers.find((p: any) => p.id === props.selectedProvider)?.models.map((m: any) => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}</select><select value={props.thinkingLevel} onChange={(e) => props.setThinkingLevel(e.target.value)}>{["off", "minimal", "low", "medium", "high"].map((l) => <option key={l} value={l}>thinking: {l}</option>)}</select></div></section></div></div>; }
+function SettingsView(props: any) {
+  const [backendDraft, setBackendDraft] = useState(props.apiBaseUrl);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => setBackendDraft(props.apiBaseUrl), [props.apiBaseUrl]);
+  const testConnection = async () => {
+    setChecking(true);
+    const status = await new MemoryholdApi(backendDraft).health();
+    props.setConnectionStatus(status);
+    setChecking(false);
+  };
+  return <div className="settings-page"><div className="settings-inner"><div className="settings-hero"><h1>Settings</h1><p>Connect provider accounts and choose the default model for new messages.</p></div><section className="card"><h2>Server connection</h2><p>Choose which Memoryhold backend this client should use. Android devices cannot use desktop localhost; use a LAN, VPN, or HTTPS server URL.</p><div className="connection-row"><input className="backend-input" value={backendDraft} onChange={(e) => setBackendDraft(e.target.value)} placeholder="http://localhost:8787"/><div className="connection-actions"><button className="button secondary" onClick={testConnection} disabled={checking}>{checking ? "Checking…" : "Test"}</button><button className="button" onClick={() => props.saveBackend(backendDraft)}>Save</button></div></div><small>Examples: local web <code>{DEFAULT_API_BASE_URL}</code>, Android emulator <code>http://10.0.2.2:8787</code>, phone on LAN <code>http://192.168.1.23:8787</code>.</small>{props.connectionStatus && <p className={cn("connection-status", props.connectionStatus.ok ? "ok" : "bad")}>{props.connectionStatus.ok ? `Connected to ${props.connectionStatus.url}` : `Cannot connect to ${props.connectionStatus.url}: ${props.connectionStatus.error}`}</p>}</section><section className="card"><h2>Accounts</h2><p>Credentials are stored on the backend in your conversations directory.</p>{props.oauthProviders.map((p: any) => <div className="account-row" key={p.id}><div><strong>{p.name}</strong><small>{p.authenticated ? "Connected" : "Not connected"}</small></div><button className={cn("button", p.authenticated ? "success" : "secondary")} onClick={() => props.startOAuth(p.id)}>{p.authenticated ? "Reconnect" : "Connect"}</button></div>)}{props.loginId && <><p><small>Browser opened. If callback does not complete, paste redirect URL/code:</small></p><textarea className="oauth-textarea" value={props.callbackInput} onChange={(e) => props.setCallbackInput(e.target.value)}/><button className="button" onClick={props.completeOAuth}>Complete login</button></>}</section><section className="card"><h2>Model defaults</h2><p>These settings are sent with each message and recorded in the conversation timeline.</p><div className="settings-grid"><select value={props.selectedProvider} onChange={(e) => props.setSelectedProvider(e.target.value)}>{props.providers.map((p: any) => <option key={p.id} value={p.id}>{p.id}</option>)}</select><select value={props.selectedModel} onChange={(e) => props.setSelectedModel(e.target.value)}>{props.providers.find((p: any) => p.id === props.selectedProvider)?.models.map((m: any) => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}</select><select value={props.thinkingLevel} onChange={(e) => props.setThinkingLevel(e.target.value)}>{["off", "minimal", "low", "medium", "high"].map((l) => <option key={l} value={l}>thinking: {l}</option>)}</select></div></section></div></div>;
+}
 function Avatar({ children }: { children: React.ReactNode }) { return <div className="avatar">{children}</div>; }
 function Markdown({ text }: { text: string }) { return <div className="markdown" dangerouslySetInnerHTML={{ __html: markdownHtml(text) }} />; }
 function Thinking() { return <div className="thinking">Thinking <span/><span/><span/></div>; }
-function Attachments({ attachments, active }: { attachments: any[]; active?: SessionMetadata }) { if (!attachments.length) return null; return <div className="attachment-list">{attachments.map((a, i) => <div className="attachment-chip" key={i}>{isImage(a) && active ? <img src={`${API}/api/sessions/${active.slug}/${a.relativePath}`}/> : <b>{attachmentIcon(a.filename)}</b>}<div><strong>{a.filename ?? "Attachment"}</strong><small>{attachmentKind(a.filename, a.mimeType)}</small></div></div>)}</div>; }
-function Message({ entry, active, editing, editingDraft, setEditingDraft, saveEdit, cancelEdit, startEdit }: any) { const role = entry.message.role === "toolResult" ? "tool" : entry.message.role; const text = displayText(entry.message); return <div className={cn("msg", role, entry.message.stopReason === "error" && "error-msg", editing && "editing")}><Avatar>{role === "user" ? "U" : role === "tool" ? "T" : "M"}</Avatar><div className="message-body"><div className="role">{role}{entry.message.stopReason === "error" ? " · error" : ""}</div><div className="bubble">{editing ? <div className="edit-box"><Attachments attachments={messageAttachments(entry.message)} active={active}/><textarea value={editingDraft} onChange={(e) => setEditingDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); saveEdit(entry); } }}/><div className="edit-actions"><button className="button secondary" onClick={cancelEdit}>Cancel</button><button className="button" onClick={() => saveEdit(entry)}>Send</button></div></div> : <><Attachments attachments={messageAttachments(entry.message)} active={active}/><Markdown text={[text, entry.message.errorMessage ? `Error: ${entry.message.errorMessage}` : ""].filter(Boolean).join("\n\n")}/></>}</div>{role === "user" && !editing && <div className="message-actions"><button onClick={() => navigator.clipboard.writeText(text)}><Copy size={15}/></button><button onClick={startEdit}><Edit3 size={15}/></button></div>}</div></div>; }
+function Attachments({ attachments, active, api }: { attachments: any[]; active?: SessionMetadata; api: MemoryholdApi }) { if (!attachments.length) return null; return <div className="attachment-list">{attachments.map((a, i) => <div className="attachment-chip" key={i}>{isImage(a) && active ? <img src={api.attachmentUrl(active.slug, a.relativePath)}/> : <b>{attachmentIcon(a.filename)}</b>}<div><strong>{a.filename ?? "Attachment"}</strong><small>{attachmentKind(a.filename, a.mimeType)}</small></div></div>)}</div>; }
+function Message({ entry, active, api, editing, editingDraft, setEditingDraft, saveEdit, cancelEdit, startEdit }: any) { const role = entry.message.role === "toolResult" ? "tool" : entry.message.role; const text = displayText(entry.message); return <div className={cn("msg", role, entry.message.stopReason === "error" && "error-msg", editing && "editing")}><Avatar>{role === "user" ? "U" : role === "tool" ? "T" : "M"}</Avatar><div className="message-body"><div className="role">{role}{entry.message.stopReason === "error" ? " · error" : ""}</div><div className="bubble">{editing ? <div className="edit-box"><Attachments attachments={messageAttachments(entry.message)} active={active} api={api}/><textarea value={editingDraft} onChange={(e) => setEditingDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); saveEdit(entry); } }}/><div className="edit-actions"><button className="button secondary" onClick={cancelEdit}>Cancel</button><button className="button" onClick={() => saveEdit(entry)}>Send</button></div></div> : <><Attachments attachments={messageAttachments(entry.message)} active={active} api={api}/><Markdown text={[text, entry.message.errorMessage ? `Error: ${entry.message.errorMessage}` : ""].filter(Boolean).join("\n\n")}/></>}</div>{role === "user" && !editing && <div className="message-actions"><button onClick={() => navigator.clipboard.writeText(text)}><Copy size={15}/></button><button onClick={startEdit}><Edit3 size={15}/></button></div>}</div></div>; }
 
 createRoot(document.getElementById("root")!).render(<App/>);

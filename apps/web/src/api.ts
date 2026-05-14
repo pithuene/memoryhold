@@ -1,0 +1,92 @@
+import type { SessionMetadata, SessionTreeEntry } from "@memoryhold/shared";
+
+export const BACKEND_URL_KEY = "memoryhold.backendUrl";
+export const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
+
+export type HealthResult = { ok: true; url: string } | { ok: false; url: string; error: string };
+export type Provider = { id: string; models: Array<{ id: string; name: string }> };
+
+export function normalizeApiBaseUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  return withProtocol.replace(/\/+$/, "");
+}
+
+export function savedBackendUrl(): string {
+  return normalizeApiBaseUrl(localStorage.getItem(BACKEND_URL_KEY) || DEFAULT_API_BASE_URL);
+}
+
+export function saveBackendUrl(url: string) {
+  localStorage.setItem(BACKEND_URL_KEY, normalizeApiBaseUrl(url));
+}
+
+async function jsonOrTextError(response: Response) {
+  if (response.ok) return response;
+  const text = await response.text().catch(() => "");
+  throw new Error(text || `${response.status} ${response.statusText}`);
+}
+
+export class MemoryholdApi {
+  readonly baseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = normalizeApiBaseUrl(baseUrl);
+  }
+
+  url(path: string): string {
+    return `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  }
+
+  async health(): Promise<HealthResult> {
+    try {
+      const response = await fetch(this.url("/api/health"));
+      if (!response.ok) return { ok: false, url: this.baseUrl, error: `${response.status} ${response.statusText}` };
+      return { ok: true, url: this.baseUrl };
+    } catch (error) {
+      return { ok: false, url: this.baseUrl, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  async getJson<T>(path: string): Promise<T> {
+    const response = await fetch(this.url(path));
+    await jsonOrTextError(response);
+    return response.json() as Promise<T>;
+  }
+
+  async sendJson<T>(path: string, method: string, body: unknown): Promise<T> {
+    const response = await fetch(this.url(path), { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    await jsonOrTextError(response);
+    return response.json() as Promise<T>;
+  }
+
+  async deleteJson<T>(path: string): Promise<T> {
+    const response = await fetch(this.url(path), { method: "DELETE" });
+    await jsonOrTextError(response);
+    return response.json() as Promise<T>;
+  }
+
+  sessions() { return this.getJson<SessionMetadata[]>("/api/sessions"); }
+  createSession() { return this.sendJson<SessionMetadata>("/api/sessions", "POST", {}); }
+  session(slug: string) { return this.getJson<{ metadata: SessionMetadata; entries: SessionTreeEntry[] }>(`/api/sessions/${encodeURIComponent(slug)}`); }
+  renameSession(slug: string, title: string) { return this.sendJson<SessionMetadata>(`/api/sessions/${encodeURIComponent(slug)}`, "PATCH", { title }); }
+  deleteSession(slug: string) { return this.deleteJson<{ ok: true }>(`/api/sessions/${encodeURIComponent(slug)}`); }
+  providers() { return this.getJson<Provider[]>("/api/providers"); }
+  oauthProviders() { return this.getJson<Array<{ id: string; name: string; authenticated: boolean }>>("/api/oauth/providers"); }
+  startOAuth(id: string) { return this.sendJson<any>(`/api/oauth/${encodeURIComponent(id)}/start`, "POST", {}); }
+  completeOAuth(loginId: string, code: string) { return this.sendJson<any>(`/api/oauth/${encodeURIComponent(loginId)}/complete`, "POST", { code }); }
+  oauthStatus(loginId: string) { return this.getJson<any>(`/api/oauth/${encodeURIComponent(loginId)}/status`); }
+
+  async uploadAttachments(slug: string, files: File[]) {
+    const form = new FormData();
+    files.forEach((file) => form.append("files", file));
+    const response = await fetch(this.url(`/api/sessions/${encodeURIComponent(slug)}/attachments`), { method: "POST", body: form });
+    await jsonOrTextError(response);
+    return response.json() as Promise<{ attachments: any[] }>;
+  }
+
+  async sendMessage(slug: string, body: unknown) { return this.sendJson<any>(`/api/sessions/${encodeURIComponent(slug)}/messages`, "POST", body); }
+  async editMessage(slug: string, entryId: string, body: unknown) { return this.sendJson<any>(`/api/sessions/${encodeURIComponent(slug)}/messages/${encodeURIComponent(entryId)}`, "PATCH", body); }
+  eventsUrl(slug: string) { return this.url(`/api/sessions/${encodeURIComponent(slug)}/events`); }
+  attachmentUrl(slug: string, relativePath: string) { return this.url(`/api/sessions/${encodeURIComponent(slug)}/${relativePath}`); }
+}
