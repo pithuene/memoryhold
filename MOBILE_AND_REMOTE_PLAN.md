@@ -66,29 +66,29 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] otherwise default to `http://localhost:8787` for normal web development
 
 - [ ] 4. Prepare the backend for remote clients
-  - [ ] Keep current local development behavior working
-  - [ ] Review CORS behavior
-    - [ ] keep permissive CORS for local/dev if desired
-    - [ ] add optional environment variables for production CORS restrictions if needed
-  - [ ] Add optional app-level access control before encouraging remote exposure
-    - [ ] optional bearer token or shared secret environment variable
-    - [ ] frontend setting for server token if enabled
-    - [ ] clear 401/403 handling in the API client
+  - [x] Keep current local development behavior working
+  - [x] Review CORS behavior
+    - [x] keep permissive CORS for local/dev if desired
+    - [x] add optional environment variables for production CORS restrictions if needed
+  - [x] Add optional app-level access control before encouraging remote exposure
+    - [x] optional bearer token or shared secret environment variable
+    - [x] frontend setting for server token if enabled
+    - [x] clear 401/403 handling in the API client
   - [ ] Document recommended deployment modes
-    - [ ] LAN-only development
-    - [ ] Tailscale/VPN
-    - [ ] HTTPS reverse proxy
-    - [ ] do not expose unauthenticated server directly to the public internet
+    - [x] LAN-only development
+    - [x] Tailscale/VPN
+    - [x] HTTPS reverse proxy
+    - [x] do not expose unauthenticated server directly to the public internet
   - [ ] Verify remote-client-sensitive endpoints
     - [ ] SSE streaming works across LAN/VPN/reverse proxy
     - [ ] attachment upload size behavior is acceptable
     - [ ] OAuth flows still work when the UI and server are on different hosts
-    - [ ] generated attachment URLs use the configured API base URL correctly
+    - [x] generated attachment URLs use the configured API base URL correctly
 
 - [ ] 5. Add Electron remote-server mode
-  - [ ] Extend Electron desktop config
+  - [x] Extend Electron desktop config
     - [x] local backend mode with conversations directory, current default
-    - [ ] remote backend mode with backend URL and optional token
+    - [x] remote backend mode with backend URL and optional token
   - [x] Add startup decision flow
     - [x] if local mode, launch backend as today
     - [x] if remote mode, do not launch backend
@@ -182,17 +182,17 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] close dialog second
     - [x] navigate from settings back to chat
     - [x] otherwise allow app background/exit behavior
-  - [ ] Improve external browser/OAuth behavior
-    - [ ] keep paste-code/manual callback flow for v1
-    - [ ] open auth URLs in system browser or Capacitor Browser plugin if added
-    - [ ] document limitations
+  - [x] Improve external browser/OAuth behavior
+    - [x] keep paste-code/manual callback flow for v1
+    - [x] open auth URLs in system browser or Capacitor Browser plugin if added
+    - [x] document limitations
   - [ ] Validate file attachments on Android
     - [ ] regular file input works for images/documents
     - [ ] uploads to remote backend work
     - [ ] attachment previews render from remote backend URLs
   - [ ] Consider optional Capacitor plugins after basic app works
-    - [ ] Browser plugin for OAuth URL opening
-    - [ ] App plugin for back button events
+    - [x] Browser plugin for OAuth URL opening
+    - [x] App plugin for back button events
     - [ ] Splash Screen plugin
     - [ ] Status Bar plugin
     - [ ] Filesystem/Camera plugins only if needed later
@@ -209,10 +209,10 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] physical device setup
     - [x] backend URL examples
     - [x] cleartext HTTP caveat
-  - [ ] Add remote server instructions
+  - [x] Add remote server instructions
     - [x] run server with `CONVERSATIONS_DIR`
-    - [ ] optional port configuration
-    - [ ] optional token/auth if implemented
+    - [x] optional port configuration
+    - [x] optional token/auth if implemented
     - [x] VPN/HTTPS recommendation
   - [ ] Add Electron remote mode instructions
     - [x] how to switch modes
@@ -221,7 +221,7 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
   - [ ] Add troubleshooting section
     - [x] Android cannot reach `localhost`
     - [x] server blocked by firewall
-    - [ ] CORS/auth failures
+    - [x] CORS/auth failures
     - [x] SSE/reverse proxy buffering problems
     - [x] OAuth callback issues
 

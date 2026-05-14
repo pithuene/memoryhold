@@ -7,6 +7,7 @@ interface DesktopConfig {
   conversationsDir?: string;
   backendMode?: "local" | "remote";
   remoteBackendUrl?: string;
+  remoteBackendToken?: string;
 }
 
 let serverProcess: ChildProcess | undefined;
@@ -33,6 +34,10 @@ function backendMode(config = activeConfig): "local" | "remote" {
 
 function remoteBackendUrl(config = activeConfig) {
   return normalizeBackendUrl(process.env.MEMORYHOLD_REMOTE_URL ?? config.remoteBackendUrl ?? "");
+}
+
+function remoteBackendToken(config = activeConfig) {
+  return process.env.MEMORYHOLD_REMOTE_TOKEN ?? process.env.MEMORYHOLD_ACCESS_TOKEN ?? config.remoteBackendToken ?? "";
 }
 
 function localBackendUrl() {
@@ -165,6 +170,7 @@ async function loadRenderer() {
     const url = new URL(webUrl);
     url.searchParams.set("memoryholdElectron", "1");
     url.searchParams.set("memoryholdApiUrl", apiUrl);
+    if (backendMode() === "remote" && remoteBackendToken()) url.searchParams.set("memoryholdToken", remoteBackendToken());
     await mainWindow.loadURL(url.toString());
     return;
   }
@@ -173,12 +179,14 @@ async function loadRenderer() {
     return;
   }
   await mainWindow.loadFile(join(process.resourcesPath, "app.asar", "apps", "web", "dist", "index.html"), {
-    query: { memoryholdElectron: "1", memoryholdApiUrl: apiUrl },
+    query: { memoryholdElectron: "1", memoryholdApiUrl: apiUrl, ...(remoteBackendToken() ? { memoryholdToken: remoteBackendToken() } : {}) },
   });
 }
 
 async function switchToRemoteFromClipboard() {
-  const url = normalizeBackendUrl(clipboard.readText());
+  const clipboardParts = clipboard.readText().trim().split(/\s+/);
+  const url = normalizeBackendUrl(clipboardParts[0] ?? "");
+  const token = clipboardParts[1] ?? "";
   if (!url) {
     await dialog.showMessageBox({ type: "warning", message: "Clipboard does not contain a server URL." });
     return;
@@ -190,7 +198,7 @@ async function switchToRemoteFromClipboard() {
   }
   serverProcess?.kill();
   serverProcess = undefined;
-  activeConfig = { ...activeConfig, backendMode: "remote", remoteBackendUrl: url };
+  activeConfig = { ...activeConfig, backendMode: "remote", remoteBackendUrl: url, remoteBackendToken: token || activeConfig.remoteBackendToken };
   writeConfig(activeConfig);
   await loadRenderer();
 }
@@ -259,7 +267,7 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   activeConfig = readConfig();
-  if (process.env.MEMORYHOLD_REMOTE_URL) activeConfig = { ...activeConfig, backendMode: "remote", remoteBackendUrl: process.env.MEMORYHOLD_REMOTE_URL };
+  if (process.env.MEMORYHOLD_REMOTE_URL) activeConfig = { ...activeConfig, backendMode: "remote", remoteBackendUrl: process.env.MEMORYHOLD_REMOTE_URL, remoteBackendToken: process.env.MEMORYHOLD_REMOTE_TOKEN ?? process.env.MEMORYHOLD_ACCESS_TOKEN ?? activeConfig.remoteBackendToken };
   installMenu();
   if (backendMode() === "local") {
     const conversationsDir = await getConversationsDir();

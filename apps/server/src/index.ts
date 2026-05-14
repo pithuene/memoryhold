@@ -23,11 +23,27 @@ const authStore = new AuthStore(conversationsDir);
 const events = new EventHub();
 const runner = new SessionRunner(repo, events, authStore);
 const app = new Hono();
+const accessToken = process.env.MEMORYHOLD_ACCESS_TOKEN ?? process.env.MEMORYHOLD_TOKEN ?? "";
+const allowedOrigins = (process.env.MEMORYHOLD_ALLOWED_ORIGINS ?? "").split(",").map((origin) => origin.trim()).filter(Boolean);
 
-app.use("*", cors());
+app.use("*", cors({
+  origin: allowedOrigins.length ? (origin) => allowedOrigins.includes(origin) ? origin : "" : "*",
+  allowHeaders: ["Content-Type", "Authorization", "X-Memoryhold-Token"],
+  allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+}));
+
+app.get("/api/health", (c) => c.json({ ok: true, authRequired: Boolean(accessToken) }));
+
+app.use("/api/*", async (c, next) => {
+  if (!accessToken || c.req.path === "/api/health") return next();
+  const auth = c.req.header("Authorization") ?? "";
+  const bearer = auth.match(/^Bearer\s+(.+)$/i)?.[1];
+  const token = bearer ?? c.req.header("X-Memoryhold-Token") ?? c.req.query("access_token") ?? "";
+  if (token !== accessToken) return c.text("Unauthorized: invalid or missing Memoryhold access token", 401);
+  return next();
+});
+
 app.route("/api/oauth", createOAuthRoutes(authStore));
-
-app.get("/api/health", (c) => c.json({ ok: true }));
 
 app.get("/api/providers", (c) => {
   const providers = getProviders().map((provider) => ({
@@ -54,9 +70,13 @@ app.post("/api/sessions", async (c) => {
 app.get("/api/sessions/:slug", async (c) => c.json(await repo.get(c.req.param("slug"))));
 
 app.patch("/api/sessions/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  if (runner.isStreaming(slug)) return c.text("Cannot rename while a response is streaming", 409);
   const body = await c.req.json().catch(() => ({}));
-  const metadata = await repo.rename(c.req.param("slug"), String(body.title ?? ""));
-  events.publish(metadata.slug, { type: "session_updated", metadata });
+  const metadata = await repo.rename(slug, String(body.title ?? ""));
+  runner.reset(slug);
+  events.publish(slug, { type: "session_updated", metadata });
+  if (metadata.slug !== slug) events.publish(metadata.slug, { type: "session_updated", metadata });
   return c.json(metadata);
 });
 

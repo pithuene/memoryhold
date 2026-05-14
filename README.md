@@ -111,6 +111,7 @@ For dev HTTP backends, the Android project allows cleartext traffic. Do not expo
 
 - Android cannot reach `localhost`: use `http://10.0.2.2:8787` in the emulator or the server machine’s LAN IP on a physical phone.
 - Server unreachable from phone: check OS firewall settings and that the phone and server are on the same network/VPN.
+- CORS/auth failures: if `MEMORYHOLD_ALLOWED_ORIGINS` is set, include the exact client origin; if `MEMORYHOLD_ACCESS_TOKEN` is set, enter the same token in Settings.
 - Android build fails before opening Android Studio: install Android Studio/JDK and the Android SDK, then retry `pnpm mobile:build`.
 - SSE/streaming behind a reverse proxy: disable response buffering for `/api/sessions/*/events`.
 - OAuth callback does not complete automatically: use the paste-code/callback field in Settings.
@@ -165,6 +166,11 @@ EXA_API_KEY=...
 
 # Optional override for Exa MCP endpoint
 EXA_MCP_URL=https://mcp.exa.ai/mcp
+
+# Optional remote-server hardening
+PORT=8787
+MEMORYHOLD_ACCESS_TOKEN=choose-a-long-random-token
+MEMORYHOLD_ALLOWED_ORIGINS=https://memoryhold.example.com,capacitor://localhost
 ```
 
 ## Development commands
