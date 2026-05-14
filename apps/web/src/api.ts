@@ -2,6 +2,11 @@ import type { SessionMetadata, SessionTreeEntry } from "@memoryhold/shared";
 
 export const BACKEND_URL_KEY = "memoryhold.backendUrl";
 export const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
+export const ANDROID_EMULATOR_API_BASE_URL = "http://10.0.2.2:8787";
+
+export function isCapacitorRuntime(): boolean {
+  return Boolean((window as any).Capacitor?.isNativePlatform?.() || (window as any).Capacitor?.getPlatform?.() === "android");
+}
 
 export type HealthResult = { ok: true; url: string } | { ok: false; url: string; error: string };
 export type Provider = { id: string; models: Array<{ id: string; name: string }> };
@@ -21,7 +26,7 @@ export function initialBackendUrl(): string {
     localStorage.setItem(BACKEND_URL_KEY, normalized);
     return normalized;
   }
-  return normalizeApiBaseUrl(localStorage.getItem(BACKEND_URL_KEY) || DEFAULT_API_BASE_URL);
+  return normalizeApiBaseUrl(localStorage.getItem(BACKEND_URL_KEY) || (isCapacitorRuntime() ? ANDROID_EMULATOR_API_BASE_URL : DEFAULT_API_BASE_URL));
 }
 
 export function saveBackendUrl(url: string) {

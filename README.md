@@ -31,6 +31,7 @@ apps/
   server/     Hono backend, filesystem storage, pi agent runner, OAuth, tools
   web/        React/Vite chat UI
   electron/   Desktop wrapper and macOS packaging scripts
+  mobile/     Capacitor Android wrapper around the web UI
 packages/
   shared/     Shared TypeScript types
 scripts/      Local screenshot/reference helpers
@@ -77,7 +78,34 @@ pnpm electron:dev
 
 On first launch, Memoryhold asks you to choose a conversations folder. That folder is persisted in Electron app data and can be changed from **File → Open Folder…**.
 
+Electron can also run as a remote client instead of launching its own backend. Start a Memoryhold server elsewhere, then either set `MEMORYHOLD_REMOTE_URL` before launch or copy the server URL and choose **File → Connect to Server URL from Clipboard…**.
+
+```bash
+MEMORYHOLD_REMOTE_URL=http://192.168.1.23:8787 pnpm electron:dev
+```
+
 Note: raw Electron dev mode may still appear as “Electron” in the macOS Dock/menu bar. The packaged `.app` uses the Memoryhold app identity.
+
+## Android dev mode
+
+The Android app is a Capacitor wrapper around the web UI. It currently connects to a Memoryhold server; it does not run the Node backend on-device.
+
+```bash
+# terminal 1: run a backend reachable from Android
+CONVERSATIONS_DIR=~/Memoryhold-Conversations pnpm --filter @memoryhold/server dev
+
+# terminal 2: build/sync/open Android project
+pnpm mobile:build
+pnpm mobile:open
+```
+
+Backend URL examples:
+
+- Android emulator: `http://10.0.2.2:8787`
+- Physical phone on same network: `http://<your-computer-lan-ip>:8787`
+- Recommended for real remote use: HTTPS or VPN/Tailscale URL
+
+For dev HTTP backends, the Android project allows cleartext traffic. Do not expose an unauthenticated Memoryhold server directly to the public internet.
 
 ## Package the desktop app
 

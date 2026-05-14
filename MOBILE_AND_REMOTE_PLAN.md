@@ -174,9 +174,9 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] release recommendation: HTTPS/VPN
 
 - [ ] 8. Add mobile platform integration polish
-  - [ ] Detect Capacitor runtime in the renderer
-    - [ ] show mobile-specific backend setup guidance
-    - [ ] use appropriate default examples
+  - [x] Detect Capacitor runtime in the renderer
+    - [x] show mobile-specific backend setup guidance
+    - [x] use appropriate default examples
   - [ ] Handle Android back button
     - [ ] close drawer first
     - [ ] close dialog second
@@ -199,25 +199,25 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
 
 - [ ] 9. Documentation and developer workflow
   - [ ] Update README architecture section
-    - [ ] web client/server model
-    - [ ] Electron local mode
-    - [ ] Electron remote mode
-    - [ ] Android remote-client mode
+    - [x] web client/server model
+    - [x] Electron local mode
+    - [x] Electron remote mode
+    - [x] Android remote-client mode
   - [ ] Add mobile development instructions
-    - [ ] Android Studio requirement
-    - [ ] emulator setup
-    - [ ] physical device setup
-    - [ ] backend URL examples
-    - [ ] cleartext HTTP caveat
+    - [x] Android Studio requirement
+    - [x] emulator setup
+    - [x] physical device setup
+    - [x] backend URL examples
+    - [x] cleartext HTTP caveat
   - [ ] Add remote server instructions
-    - [ ] run server with `CONVERSATIONS_DIR`
+    - [x] run server with `CONVERSATIONS_DIR`
     - [ ] optional port configuration
     - [ ] optional token/auth if implemented
-    - [ ] VPN/HTTPS recommendation
+    - [x] VPN/HTTPS recommendation
   - [ ] Add Electron remote mode instructions
-    - [ ] how to switch modes
-    - [ ] how config is persisted
-    - [ ] how to return to local mode
+    - [x] how to switch modes
+    - [x] how config is persisted
+    - [x] how to return to local mode
   - [ ] Add troubleshooting section
     - [ ] Android cannot reach `localhost`
     - [ ] server blocked by firewall
