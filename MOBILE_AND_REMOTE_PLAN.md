@@ -2,24 +2,24 @@
 
 Goal: add an Android Capacitor app that can connect to a Memoryhold server, add an optional remote-server mode for Electron, and gradually move the codebase toward an Obsidian-style shared-core architecture that could later support a fully local mobile app.
 
-- [ ] 1. Define target architecture and compatibility boundaries
-  - [ ] Document the three supported runtime modes
-    - [ ] Browser web app connecting to a configured Memoryhold server
-    - [ ] Electron desktop app either launching a local backend or connecting to a remote backend
-    - [ ] Capacitor Android app connecting to a configured Memoryhold server
-  - [ ] Preserve current local-first desktop behavior as the default Electron mode
-  - [ ] Treat fully local mobile as a later architecture target, not part of the first Android release
-  - [ ] Identify code that can eventually become platform-neutral shared core
-    - [ ] Session metadata and transcript types
-    - [ ] API client types
-    - [ ] Settings model
-    - [ ] Attachment metadata helpers
-    - [ ] Markdown/message rendering helpers where practical
-  - [ ] Identify code that should remain platform-specific
-    - [ ] Node/Hono backend runtime
-    - [ ] Electron folder picker and child process management
-    - [ ] Capacitor native plugins and Android permissions
-    - [ ] Filesystem/storage adapters for future local mobile mode
+- [x] 1. Define target architecture and compatibility boundaries
+  - [x] Document the three supported runtime modes
+    - [x] Browser web app connecting to a configured Memoryhold server
+    - [x] Electron desktop app either launching a local backend or connecting to a remote backend
+    - [x] Capacitor Android app connecting to a configured Memoryhold server
+  - [x] Preserve current local-first desktop behavior as the default Electron mode
+  - [x] Treat fully local mobile as a later architecture target, not part of the first Android release
+  - [x] Identify code that can eventually become platform-neutral shared core
+    - [x] Session metadata and transcript types
+    - [x] API client types
+    - [x] Settings model
+    - [x] Attachment metadata helpers
+    - [x] Markdown/message rendering helpers where practical
+  - [x] Identify code that should remain platform-specific
+    - [x] Node/Hono backend runtime
+    - [x] Electron folder picker and child process management
+    - [x] Capacitor native plugins and Android permissions
+    - [x] Filesystem/storage adapters for future local mobile mode
 
 - [x] 2. Add a shared API client/settings foundation
   - [x] Create a shared package or module for Memoryhold client configuration
@@ -268,25 +268,25 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] no Node filesystem dependencies
     - [x] no Electron dependencies
     - [x] no Capacitor dependencies in core modules
-  - [ ] Define future storage adapter boundary
-    - [ ] list sessions
-    - [ ] create session
-    - [ ] read/write transcript entries
-    - [ ] save/read attachments
-    - [ ] store credentials/settings
-  - [ ] Define future execution adapter boundary
-    - [ ] send message
-    - [ ] stream updates
-    - [ ] tool execution capabilities
-    - [ ] provider credential capabilities
-  - [ ] Keep server implementation as one adapter
-    - [ ] current Hono backend remains canonical for now
-    - [ ] API client is the remote adapter
-  - [ ] Leave room for future mobile-local adapter
-    - [ ] Capacitor Filesystem/app storage
-    - [ ] secure credential storage
-    - [ ] mobile-compatible provider execution strategy
-    - [ ] native/plugin-based tools if needed
+  - [x] Define future storage adapter boundary
+    - [x] list sessions
+    - [x] create session
+    - [x] read/write transcript entries
+    - [x] save/read attachments
+    - [x] store credentials/settings
+  - [x] Define future execution adapter boundary
+    - [x] send message
+    - [x] stream updates
+    - [x] tool execution capabilities
+    - [x] provider credential capabilities
+  - [x] Keep server implementation as one adapter
+    - [x] current Hono backend remains canonical for now
+    - [x] API client is the remote adapter
+  - [x] Leave room for future mobile-local adapter
+    - [x] Capacitor Filesystem/app storage
+    - [x] secure credential storage
+    - [x] mobile-compatible provider execution strategy
+    - [x] native/plugin-based tools if needed
 
 - [ ] 12. Release sequencing
   - [ ] Part 1: API client and backend URL settings

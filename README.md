@@ -133,6 +133,10 @@ The packaged macOS app is currently unsigned and unnotarized, so macOS may requi
 
 GitHub Actions also includes manual/tag-triggered artifact workflows at `.github/workflows/release-mac.yml` and `.github/workflows/release-linux.yml`.
 
+## Architecture notes
+
+See [`docs/mobile-remote-architecture.md`](docs/mobile-remote-architecture.md) for the current web/Electron/Android runtime boundaries and the future local-mobile adapter direction.
+
 ## Credentials and privacy
 
 Memoryhold does not require app-level cloud storage. Your conversations and credentials stay in the local conversations folder you select.
