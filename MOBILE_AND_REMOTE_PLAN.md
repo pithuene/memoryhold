@@ -87,30 +87,30 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
 
 - [ ] 5. Add Electron remote-server mode
   - [ ] Extend Electron desktop config
-    - [ ] local backend mode with conversations directory, current default
+    - [x] local backend mode with conversations directory, current default
     - [ ] remote backend mode with backend URL and optional token
-  - [ ] Add startup decision flow
-    - [ ] if local mode, launch backend as today
-    - [ ] if remote mode, do not launch backend
-    - [ ] validate remote server health before loading the UI, or load UI with a visible connection warning
+  - [x] Add startup decision flow
+    - [x] if local mode, launch backend as today
+    - [x] if remote mode, do not launch backend
+    - [x] validate remote server health before loading the UI, or load UI with a visible connection warning
   - [ ] Add menu/settings actions
-    - [ ] switch to local backend mode
-    - [ ] switch to remote backend mode
-    - [ ] edit remote server URL
-    - [ ] test remote server connection
-    - [ ] choose local conversations folder remains available in local mode
-  - [ ] Pass platform defaults into the renderer
-    - [ ] local mode default API URL: `http://localhost:<port>`
-    - [ ] remote mode default API URL: configured remote URL
-    - [ ] keep renderer settings override possible where appropriate
+    - [x] switch to local backend mode
+    - [x] switch to remote backend mode
+    - [x] edit remote server URL
+    - [x] test remote server connection
+    - [x] choose local conversations folder remains available in local mode
+  - [x] Pass platform defaults into the renderer
+    - [x] local mode default API URL: `http://localhost:<port>`
+    - [x] remote mode default API URL: configured remote URL
+    - [x] keep renderer settings override possible where appropriate
   - [ ] Update Electron dev workflow
-    - [ ] test local backend mode
+    - [x] test local backend mode
     - [ ] test remote backend mode against an already-running server
-    - [ ] ensure server child process is not started in remote mode
+    - [x] ensure server child process is not started in remote mode
   - [ ] Update Electron packaging behavior
-    - [ ] packaged app still includes backend for local mode
-    - [ ] remote mode does not require local conversations folder selection
-    - [ ] switching modes persists across restarts
+    - [x] packaged app still includes backend for local mode
+    - [x] remote mode does not require local conversations folder selection
+    - [x] switching modes persists across restarts
 
 - [ ] 6. Make the web UI mobile-friendly
   - [ ] Replace fixed desktop sidebar behavior on small screens

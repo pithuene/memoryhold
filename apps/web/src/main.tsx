@@ -8,7 +8,7 @@ import { marked } from "marked";
 import markedKatex from "marked-katex-extension";
 import DOMPurify from "dompurify";
 import "katex/dist/katex.min.css";
-import { DEFAULT_API_BASE_URL, MemoryholdApi, normalizeApiBaseUrl, saveBackendUrl, savedBackendUrl, type HealthResult, type Provider } from "./api";
+import { DEFAULT_API_BASE_URL, MemoryholdApi, initialBackendUrl, normalizeApiBaseUrl, saveBackendUrl, type HealthResult, type Provider } from "./api";
 import "./styles.css";
 
 marked.use(markedKatex({ throwOnError: false, displayMode: false, nonStandard: true }));
@@ -72,7 +72,7 @@ function App() {
   const [loginId, setLoginId] = useState("");
   const [callbackInput, setCallbackInput] = useState("");
   const [view, setView] = useState<View>("chat");
-  const [apiBaseUrl, setApiBaseUrl] = useState(savedBackendUrl);
+  const [apiBaseUrl, setApiBaseUrl] = useState(initialBackendUrl);
   const [connectionStatus, setConnectionStatus] = useState<HealthResult | undefined>();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState("");

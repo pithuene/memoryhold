@@ -13,7 +13,14 @@ export function normalizeApiBaseUrl(value: string): string {
   return withProtocol.replace(/\/+$/, "");
 }
 
-export function savedBackendUrl(): string {
+export function initialBackendUrl(): string {
+  const url = new URL(window.location.href);
+  const fromQuery = url.searchParams.get("memoryholdApiUrl");
+  if (fromQuery) {
+    const normalized = normalizeApiBaseUrl(fromQuery);
+    localStorage.setItem(BACKEND_URL_KEY, normalized);
+    return normalized;
+  }
   return normalizeApiBaseUrl(localStorage.getItem(BACKEND_URL_KEY) || DEFAULT_API_BASE_URL);
 }
 

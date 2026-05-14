@@ -1,21 +1,47 @@
-import { app, BrowserWindow, dialog, Menu, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, Menu, shell } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 interface DesktopConfig {
   conversationsDir?: string;
+  backendMode?: "local" | "remote";
+  remoteBackendUrl?: string;
 }
 
 let serverProcess: ChildProcess | undefined;
 let webProcess: ChildProcess | undefined;
 let mainWindow: BrowserWindow | undefined;
+let activeConfig: DesktopConfig = {};
 
 app.setName("Memoryhold");
 
 const isDev = process.env.MEMORYHOLD_ELECTRON_DEV === "1" || !app.isPackaged;
 const serverPort = Number(process.env.MEMORYHOLD_SERVER_PORT ?? 8787);
 const webUrl = process.env.MEMORYHOLD_WEB_URL ?? `http://localhost:5173`;
+
+function normalizeBackendUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  return withProtocol.replace(/\/+$/, "");
+}
+
+function backendMode(config = activeConfig): "local" | "remote" {
+  return process.env.MEMORYHOLD_REMOTE_URL || config.backendMode === "remote" ? "remote" : "local";
+}
+
+function remoteBackendUrl(config = activeConfig) {
+  return normalizeBackendUrl(process.env.MEMORYHOLD_REMOTE_URL ?? config.remoteBackendUrl ?? "");
+}
+
+function localBackendUrl() {
+  return `http://localhost:${serverPort}`;
+}
+
+function rendererApiUrl() {
+  return backendMode() === "remote" ? remoteBackendUrl() : localBackendUrl();
+}
 
 function configPath() {
   return join(app.getPath("userData"), "desktop-config.json");
@@ -48,22 +74,14 @@ async function chooseConversationsDir(): Promise<string | undefined> {
 async function pickAndSwitchConversationsDir() {
   const selected = await chooseConversationsDir();
   if (!selected) return;
-  writeConfig({ conversationsDir: selected });
+  activeConfig = { ...activeConfig, backendMode: "local", conversationsDir: selected };
+  writeConfig(activeConfig);
   await restartServer(selected);
-  if (mainWindow) {
-    if (isDev) {
-      const url = new URL(webUrl);
-      url.searchParams.set("memoryholdElectron", "1");
-      await mainWindow.loadURL(url.toString());
-    } else {
-      await waitForUrl(`http://localhost:${serverPort}/api/health`, "Memoryhold server");
-      await mainWindow.loadURL(`http://localhost:${serverPort}/?memoryholdElectron=1`);
-    }
-  }
+  await loadRenderer();
 }
 
 async function getConversationsDir(): Promise<string> {
-  const existing = process.env.CONVERSATIONS_DIR ?? readConfig().conversationsDir;
+  const existing = process.env.CONVERSATIONS_DIR ?? activeConfig.conversationsDir;
   if (existing) return existing;
 
   const selected = await chooseConversationsDir();
@@ -71,7 +89,8 @@ async function getConversationsDir(): Promise<string> {
     app.quit();
     throw new Error("No conversations directory selected");
   }
-  writeConfig({ conversationsDir: selected });
+  activeConfig = { ...activeConfig, backendMode: "local", conversationsDir: selected };
+  writeConfig(activeConfig);
   return selected;
 }
 
@@ -100,7 +119,7 @@ async function restartServer(conversationsDir: string) {
   serverProcess?.kill();
   serverProcess = undefined;
   startServer(conversationsDir);
-  await waitForUrl(`http://localhost:${serverPort}/api/health`, "Memoryhold server");
+  await waitForUrl(`${localBackendUrl()}/api/health`, "Memoryhold server");
 }
 
 function startServer(conversationsDir: string) {
@@ -135,6 +154,55 @@ async function waitForUrl(url: string, label: string) {
   throw new Error(`${label} did not start in time`);
 }
 
+async function loadRenderer() {
+  if (!mainWindow) return;
+  const apiUrl = rendererApiUrl();
+  if (!apiUrl) {
+    await dialog.showMessageBox({ type: "warning", message: "No remote backend URL is configured." });
+    return;
+  }
+  if (isDev) {
+    const url = new URL(webUrl);
+    url.searchParams.set("memoryholdElectron", "1");
+    url.searchParams.set("memoryholdApiUrl", apiUrl);
+    await mainWindow.loadURL(url.toString());
+    return;
+  }
+  if (backendMode() === "local") {
+    await mainWindow.loadURL(`${localBackendUrl()}/?memoryholdElectron=1&memoryholdApiUrl=${encodeURIComponent(apiUrl)}`);
+    return;
+  }
+  await mainWindow.loadFile(join(process.resourcesPath, "app.asar", "apps", "web", "dist", "index.html"), {
+    query: { memoryholdElectron: "1", memoryholdApiUrl: apiUrl },
+  });
+}
+
+async function switchToRemoteFromClipboard() {
+  const url = normalizeBackendUrl(clipboard.readText());
+  if (!url) {
+    await dialog.showMessageBox({ type: "warning", message: "Clipboard does not contain a server URL." });
+    return;
+  }
+  const health = await fetch(`${url}/api/health`).then((r) => r.ok).catch(() => false);
+  if (!health) {
+    const result = await dialog.showMessageBox({ type: "warning", buttons: ["Use Anyway", "Cancel"], defaultId: 1, message: `Could not reach ${url}. Use it anyway?` });
+    if (result.response !== 0) return;
+  }
+  serverProcess?.kill();
+  serverProcess = undefined;
+  activeConfig = { ...activeConfig, backendMode: "remote", remoteBackendUrl: url };
+  writeConfig(activeConfig);
+  await loadRenderer();
+}
+
+async function switchToLocalBackend() {
+  activeConfig = { ...activeConfig, backendMode: "local" };
+  writeConfig(activeConfig);
+  const conversationsDir = await getConversationsDir();
+  await restartServer(conversationsDir);
+  await loadRenderer();
+}
+
 function installMenu() {
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(process.platform === "darwin" ? [{ role: "appMenu" as const }] : []),
@@ -145,6 +213,14 @@ function installMenu() {
           label: "Open Folder…",
           accelerator: "CmdOrCtrl+O",
           click: () => void pickAndSwitchConversationsDir(),
+        },
+        {
+          label: "Use Local Backend",
+          click: () => void switchToLocalBackend(),
+        },
+        {
+          label: "Connect to Server URL from Clipboard…",
+          click: () => void switchToRemoteFromClipboard(),
         },
         { type: "separator" },
         process.platform === "darwin" ? { role: "close" } : { role: "quit" },
@@ -178,21 +254,19 @@ async function createWindow() {
     return { action: "deny" };
   });
 
-  if (isDev) {
-    const url = new URL(webUrl);
-    url.searchParams.set("memoryholdElectron", "1");
-    await mainWindow.loadURL(url.toString());
-  } else {
-    await mainWindow.loadURL(`http://localhost:${serverPort}/?memoryholdElectron=1`);
-  }
+  await loadRenderer();
 }
 
 app.whenReady().then(async () => {
+  activeConfig = readConfig();
+  if (process.env.MEMORYHOLD_REMOTE_URL) activeConfig = { ...activeConfig, backendMode: "remote", remoteBackendUrl: process.env.MEMORYHOLD_REMOTE_URL };
   installMenu();
-  const conversationsDir = await getConversationsDir();
-  startServer(conversationsDir);
+  if (backendMode() === "local") {
+    const conversationsDir = await getConversationsDir();
+    startServer(conversationsDir);
+    await waitForUrl(`${localBackendUrl()}/api/health`, "Memoryhold server");
+  }
   startWebDev();
-  await waitForUrl(`http://localhost:${serverPort}/api/health`, "Memoryhold server");
   if (isDev) await waitForUrl(webUrl, "Memoryhold web app");
   await createWindow();
 });
