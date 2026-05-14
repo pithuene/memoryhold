@@ -136,8 +136,8 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] single-column settings layout
     - [x] full-width controls where appropriate
     - [x] dialogs fit small screens
-  - [ ] Replace desktop-only context menu paths where needed
-    - [ ] expose rename/delete via visible mobile actions or a touch-friendly overflow menu
+  - [x] Replace desktop-only context menu paths where needed
+    - [x] expose rename/delete via visible mobile actions or a touch-friendly overflow menu
     - [x] keep Radix context menu for desktop/right-click
   - [ ] Test responsive breakpoints
     - [ ] 360px wide phone
@@ -177,11 +177,11 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
   - [x] Detect Capacitor runtime in the renderer
     - [x] show mobile-specific backend setup guidance
     - [x] use appropriate default examples
-  - [ ] Handle Android back button
-    - [ ] close drawer first
-    - [ ] close dialog second
-    - [ ] navigate from settings back to chat
-    - [ ] otherwise allow app background/exit behavior
+  - [x] Handle Android back button
+    - [x] close drawer first
+    - [x] close dialog second
+    - [x] navigate from settings back to chat
+    - [x] otherwise allow app background/exit behavior
   - [ ] Improve external browser/OAuth behavior
     - [ ] keep paste-code/manual callback flow for v1
     - [ ] open auth URLs in system browser or Capacitor Browser plugin if added

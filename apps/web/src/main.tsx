@@ -149,6 +149,18 @@ function App() {
     const timeout = window.setTimeout(() => setErrorMessage(""), 12000);
     return () => window.clearTimeout(timeout);
   }, [errorMessage]);
+  useEffect(() => {
+    const appPlugin = (window as any).Capacitor?.Plugins?.App;
+    if (!mobileRuntime || !appPlugin?.addListener) return;
+    let handle: { remove?: () => Promise<void> | void } | undefined;
+    void appPlugin.addListener("backButton", () => {
+      if (mobileSidebarOpen) return setMobileSidebarOpen(false);
+      if (deleteCandidate) return setDeleteCandidate(undefined);
+      if (view === "settings") return setView("chat");
+      void appPlugin.exitApp?.();
+    }).then((h: any) => { handle = h; });
+    return () => { void handle?.remove?.(); };
+  }, [mobileRuntime, mobileSidebarOpen, deleteCandidate, view]);
 
   const newSession = async () => { const metadata = await api.createSession(); await loadSessions(); await openSession(metadata); };
   const saveRename = async (session: SessionMetadata) => { const title = renamingTitle.trim(); if (!title || title === session.title) { setRenamingSlug(""); return; } try { const m = await api.renameSession(session.slug, title); setSessions((ss) => ss.map((x) => x.slug === session.slug || x.slug === m.slug ? m : x)); setRenamingSlug(""); if (active?.slug === session.slug) await openSession(m, true, true); else await loadSessions(); } catch (error) { showError(error instanceof Error ? error.message : String(error)); } };
@@ -166,7 +178,7 @@ function App() {
       <button className={cn("nav", view === "settings" && "active")} onClick={() => { setView("settings"); setMobileSidebarOpen(false); }}><Settings size={18}/>Settings</button>
       <h3>Recents</h3>
       <div className="session-list">{sessions.map((s) => <ContextMenu.Root key={s.slug}>
-        <ContextMenu.Trigger asChild><div onClick={() => { void openSession(s); setMobileSidebarOpen(false); }} className={cn("session", active?.slug === s.slug && "active")}>{renamingSlug === s.slug ? <input ref={renameRef} className="rename-input" value={renamingTitle} onClick={(e) => e.stopPropagation()} onChange={(e) => setRenamingTitle(e.target.value)} onBlur={() => saveRename(s)} onKeyDown={(e) => { if (e.key === "Enter") void saveRename(s); if (e.key === "Escape") setRenamingSlug(""); }} /> : <span>{s.title}</span>}</div></ContextMenu.Trigger>
+        <ContextMenu.Trigger asChild><div onClick={() => { void openSession(s); setMobileSidebarOpen(false); }} className={cn("session", active?.slug === s.slug && "active")}>{renamingSlug === s.slug ? <input ref={renameRef} className="rename-input" value={renamingTitle} onClick={(e) => e.stopPropagation()} onChange={(e) => setRenamingTitle(e.target.value)} onBlur={() => saveRename(s)} onKeyDown={(e) => { if (e.key === "Enter") void saveRename(s); if (e.key === "Escape") setRenamingSlug(""); }} /> : <><span>{s.title}</span><div className="mobile-session-actions"><button type="button" aria-label="Rename" onClick={(e) => { e.stopPropagation(); setRenamingSlug(s.slug); setRenamingTitle(s.title); }}><Edit3 size={14}/></button><button type="button" aria-label="Delete" onClick={(e) => { e.stopPropagation(); setDeleteCandidate(s); }}><Trash2 size={14}/></button></div></>}</div></ContextMenu.Trigger>
         <ContextMenu.Portal><ContextMenu.Content className="menu"><ContextMenu.Item className="menu-item" onSelect={() => { setRenamingSlug(s.slug); setRenamingTitle(s.title); }}><Edit3 size={15}/>Rename</ContextMenu.Item><ContextMenu.Item className="menu-item danger" onSelect={() => setDeleteCandidate(s)}><Trash2 size={15}/>Delete</ContextMenu.Item></ContextMenu.Content></ContextMenu.Portal>
       </ContextMenu.Root>)}</div>
     </aside>
