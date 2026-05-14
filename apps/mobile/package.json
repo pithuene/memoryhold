@@ -1,0 +1,19 @@
+{
+  "name": "@memoryhold/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync:android": "cap sync android",
+    "open:android": "cap open android",
+    "run:android": "cap run android",
+    "build:android": "pnpm --filter @memoryhold/web build && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.4",
+    "@capacitor/core": "^7.4.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.4"
+  }
+}

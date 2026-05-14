@@ -146,32 +146,32 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [ ] desktop unchanged
 
 - [ ] 7. Add Capacitor Android app shell
-  - [ ] Decide project layout
-    - [ ] prefer `apps/mobile` as a Capacitor wrapper around `apps/web/dist`
-    - [ ] keep `apps/web` as the shared renderer app
-  - [ ] Add Capacitor dependencies
-    - [ ] `@capacitor/core`
-    - [ ] `@capacitor/cli`
-    - [ ] `@capacitor/android`
-  - [ ] Create Capacitor config
-    - [ ] app id, e.g. `com.memoryhold.app`
-    - [ ] app name `Memoryhold`
-    - [ ] web dir pointing at built web output
-    - [ ] Android scheme/configuration
+  - [x] Decide project layout
+    - [x] prefer `apps/mobile` as a Capacitor wrapper around `apps/web/dist`
+    - [x] keep `apps/web` as the shared renderer app
+  - [x] Add Capacitor dependencies
+    - [x] `@capacitor/core`
+    - [x] `@capacitor/cli`
+    - [x] `@capacitor/android`
+  - [x] Create Capacitor config
+    - [x] app id, e.g. `com.memoryhold.app`
+    - [x] app name `Memoryhold`
+    - [x] web dir pointing at built web output
+    - [x] Android scheme/configuration
   - [ ] Add Android platform
-    - [ ] generated Android project under `apps/mobile/android`
+    - [x] generated Android project under `apps/mobile/android`
     - [ ] app icon/splash assets from existing Memoryhold assets
-    - [ ] internet permission
-    - [ ] cleartext HTTP allowed for dev builds if needed
-  - [ ] Add package scripts
-    - [ ] build web
-    - [ ] sync Capacitor Android
-    - [ ] open Android Studio
-    - [ ] run on emulator/device
-  - [ ] Add Android-specific default backend hints
-    - [ ] emulator: `http://10.0.2.2:8787`
-    - [ ] physical device: LAN IP of server machine
-    - [ ] release recommendation: HTTPS/VPN
+    - [x] internet permission
+    - [x] cleartext HTTP allowed for dev builds if needed
+  - [x] Add package scripts
+    - [x] build web
+    - [x] sync Capacitor Android
+    - [x] open Android Studio
+    - [x] run on emulator/device
+  - [x] Add Android-specific default backend hints
+    - [x] emulator: `http://10.0.2.2:8787`
+    - [x] physical device: LAN IP of server machine
+    - [x] release recommendation: HTTPS/VPN
 
 - [ ] 8. Add mobile platform integration polish
   - [ ] Detect Capacitor runtime in the renderer

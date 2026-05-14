@@ -13,7 +13,10 @@
     "check": "pnpm -r check",
     "screenshot": "node scripts/screenshot.mjs",
     "chatgpt:login": "CHATGPT_REF_SETUP=1 node scripts/chatgpt-reference.mjs",
-    "screenshot:chatgpt-ref": "node scripts/chatgpt-reference.mjs"
+    "screenshot:chatgpt-ref": "node scripts/chatgpt-reference.mjs",
+    "mobile:build": "pnpm --filter @memoryhold/mobile build:android",
+    "mobile:open": "pnpm --filter @memoryhold/mobile open:android",
+    "mobile:run": "pnpm --filter @memoryhold/mobile run:android"
   },
   "packageManager": "pnpm@10.19.0",
   "devDependencies": {
