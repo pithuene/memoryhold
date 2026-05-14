@@ -259,15 +259,15 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
 
 - [ ] 11. Gradual shared-core refactor for future local mobile
   - [ ] Extract platform-neutral domain helpers from `apps/web/src/main.tsx`
-    - [ ] content rendering helpers
-    - [ ] attachment kind/icon helpers
+    - [x] content rendering helpers
+    - [x] attachment kind/icon helpers
     - [ ] settings persistence helpers where appropriate
-    - [ ] API request helpers
+    - [x] API request helpers
   - [ ] Keep shared code environment-agnostic
-    - [ ] no direct DOM dependencies unless in UI package
-    - [ ] no Node filesystem dependencies
-    - [ ] no Electron dependencies
-    - [ ] no Capacitor dependencies in core modules
+    - [x] no direct DOM dependencies unless in UI package
+    - [x] no Node filesystem dependencies
+    - [x] no Electron dependencies
+    - [x] no Capacitor dependencies in core modules
   - [ ] Define future storage adapter boundary
     - [ ] list sessions
     - [ ] create session
