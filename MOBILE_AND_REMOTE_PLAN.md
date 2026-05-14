@@ -45,21 +45,21 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] server health/status result
 
 - [ ] 3. Add runtime backend configuration to the web UI
-  - [ ] Add a connection settings model
+  - [x] Add a connection settings model
     - [x] backend URL
-    - [ ] connection mode label, e.g. `local`, `remote`, `mobile`
-    - [ ] last successful health check timestamp
-  - [ ] Add a connection settings screen or settings section
+    - [x] connection mode label, e.g. `local`, `remote`, `mobile`
+    - [x] last successful health check timestamp
+  - [x] Add a connection settings screen or settings section
     - [x] display current backend URL
     - [x] edit/save backend URL
     - [x] test connection button
-    - [ ] reset to default button
+    - [x] reset to default button
   - [ ] Add first-run behavior for clients that need an explicit remote server
     - [ ] if no backend URL is configured and no platform default is available, show setup screen
     - [x] include examples such as `http://192.168.1.23:8787`, `http://10.0.2.2:8787`, and HTTPS/VPN URLs
-  - [ ] Make connection failures user-friendly
+  - [x] Make connection failures user-friendly
     - [x] show unreachable server message
-    - [ ] show invalid URL message
+    - [x] show invalid URL message
     - [x] keep settings accessible even when API calls fail
   - [x] Preserve current browser dev default
     - [x] default to `VITE_API_URL` when present

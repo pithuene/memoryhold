@@ -18,6 +18,18 @@ export function normalizeApiBaseUrl(value: string): string {
   return withProtocol.replace(/\/+$/, "");
 }
 
+export function validateApiBaseUrl(value: string): string | undefined {
+  const normalized = normalizeApiBaseUrl(value);
+  if (!normalized) return "Server URL is required";
+  try {
+    const url = new URL(normalized);
+    if (!/^https?:$/.test(url.protocol)) return "Server URL must start with http:// or https://";
+    return undefined;
+  } catch {
+    return "Enter a valid server URL";
+  }
+}
+
 export function initialBackendUrl(): string {
   const url = new URL(window.location.href);
   const fromQuery = url.searchParams.get("memoryholdApiUrl");
