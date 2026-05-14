@@ -158,9 +158,9 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] app name `Memoryhold`
     - [x] web dir pointing at built web output
     - [x] Android scheme/configuration
-  - [ ] Add Android platform
+  - [x] Add Android platform
     - [x] generated Android project under `apps/mobile/android`
-    - [ ] app icon/splash assets from existing Memoryhold assets
+    - [x] app icon/splash assets from existing Memoryhold assets
     - [x] internet permission
     - [x] cleartext HTTP allowed for dev builds if needed
   - [x] Add package scripts
