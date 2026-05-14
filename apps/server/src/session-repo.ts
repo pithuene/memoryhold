@@ -1,10 +1,14 @@
-import { mkdir, readFile, readdir, writeFile, appendFile, rm } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile, appendFile, rm, rename } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { CreateSessionRequest, MessageEntry, ModelChangeEntry, SessionHeader, SessionMetadata, SessionTreeEntry, ThinkingLevelChangeEntry, UploadedAttachmentRef } from "@memoryhold/shared";
 
 function slugify(input: string): string {
   return input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "untitled";
+}
+
+function sessionSlug(date: string, title: string, id: string, suffix = ""): string {
+  return `${date}-${slugify(title)}-${id.slice(0, 8)}${suffix}`;
 }
 
 export class SessionRepo {
@@ -16,6 +20,15 @@ export class SessionRepo {
 
   private sessionDir(slug: string): string {
     return join(this.rootDir, slug);
+  }
+
+  private async sessionExists(slug: string): Promise<boolean> {
+    try {
+      await readFile(join(this.sessionDir(slug), "metadata.json"));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async list(): Promise<SessionMetadata[]> {
@@ -39,7 +52,7 @@ export class SessionRepo {
     const id = randomUUID();
     const now = new Date().toISOString();
     const title = req.title?.trim() || "New conversation";
-    const slug = `${now.slice(0, 10)}-${slugify(title)}-${id.slice(0, 8)}`;
+    const slug = sessionSlug(now.slice(0, 10), title, id);
     const dir = this.sessionDir(slug);
     await mkdir(join(dir, "attachments"), { recursive: true });
 
@@ -76,8 +89,19 @@ export class SessionRepo {
     const { metadata } = await this.get(slug);
     const nextTitle = title.trim();
     if (!nextTitle) throw new Error("Title is required");
+
+    const oldDir = this.sessionDir(slug);
+    const date = (metadata.createdAt || new Date().toISOString()).slice(0, 10);
+    let nextSlug = sessionSlug(date, nextTitle, metadata.id);
+    let counter = 2;
+    while (nextSlug !== slug && await this.sessionExists(nextSlug)) {
+      nextSlug = sessionSlug(date, nextTitle, metadata.id, `-${counter++}`);
+    }
+
     metadata.title = nextTitle.slice(0, 200);
+    metadata.slug = nextSlug;
     metadata.lastModified = new Date().toISOString();
+    if (nextSlug !== slug) await rename(oldDir, this.sessionDir(nextSlug));
     await this.saveMetadata(metadata);
     return metadata;
   }
