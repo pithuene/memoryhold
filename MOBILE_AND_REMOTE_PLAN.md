@@ -113,32 +113,32 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] switching modes persists across restarts
 
 - [ ] 6. Make the web UI mobile-friendly
-  - [ ] Replace fixed desktop sidebar behavior on small screens
-    - [ ] use drawer/sidebar overlay on mobile
-    - [ ] add hamburger/menu button
-    - [ ] close drawer after selecting a chat
-    - [ ] close drawer with backdrop tap
+  - [x] Replace fixed desktop sidebar behavior on small screens
+    - [x] use drawer/sidebar overlay on mobile
+    - [x] add hamburger/menu button
+    - [x] close drawer after selecting a chat
+    - [x] close drawer with backdrop tap
   - [ ] Improve mobile top bar
-    - [ ] show active chat title
-    - [ ] expose new chat/settings access
-    - [ ] avoid overflowing model/provider text
+    - [x] show active chat title
+    - [x] expose new chat/settings access
+    - [x] avoid overflowing model/provider text
   - [ ] Improve mobile composer
-    - [ ] respect safe-area insets
-    - [ ] remain usable with Android keyboard open
-    - [ ] use touch-friendly buttons
-    - [ ] keep attachment chips manageable on narrow screens
+    - [x] respect safe-area insets
+    - [x] remain usable with Android keyboard open
+    - [x] use touch-friendly buttons
+    - [x] keep attachment chips manageable on narrow screens
   - [ ] Improve mobile message view
-    - [ ] reduce padding
-    - [ ] allow markdown/code blocks to scroll horizontally
-    - [ ] make user bubbles fit small screens
-    - [ ] ensure streaming indicator remains visible
+    - [x] reduce padding
+    - [x] allow markdown/code blocks to scroll horizontally
+    - [x] make user bubbles fit small screens
+    - [x] ensure streaming indicator remains visible
   - [ ] Improve mobile settings and dialogs
-    - [ ] single-column settings layout
-    - [ ] full-width controls where appropriate
-    - [ ] dialogs fit small screens
+    - [x] single-column settings layout
+    - [x] full-width controls where appropriate
+    - [x] dialogs fit small screens
   - [ ] Replace desktop-only context menu paths where needed
     - [ ] expose rename/delete via visible mobile actions or a touch-friendly overflow menu
-    - [ ] keep Radix context menu for desktop/right-click
+    - [x] keep Radix context menu for desktop/right-click
   - [ ] Test responsive breakpoints
     - [ ] 360px wide phone
     - [ ] 390px wide phone

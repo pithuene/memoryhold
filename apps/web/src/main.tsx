@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Copy, Edit3, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, Settings, Trash2, X } from "lucide-react";
+import { Copy, Edit3, Menu, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, Settings, Trash2, X } from "lucide-react";
 import type { SessionMetadata, SessionTreeEntry } from "@memoryhold/shared";
 import { marked } from "marked";
 import markedKatex from "marked-katex-extension";
@@ -75,6 +75,7 @@ function App() {
   const [apiBaseUrl, setApiBaseUrl] = useState(initialBackendUrl);
   const [connectionStatus, setConnectionStatus] = useState<HealthResult | undefined>();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState("");
   const [editingDraft, setEditingDraft] = useState("");
   const [renamingSlug, setRenamingSlug] = useState("");
@@ -157,19 +158,20 @@ function App() {
   const send = async (ev: React.FormEvent) => { ev.preventDefault(); if (!active || !draft.trim()) return; setErrorMessage(""); const content = draft; const outgoing = files; setDraft(""); setFiles([]); try { let attachments: any[] = []; if (outgoing.length) attachments = (await api.uploadAttachments(active.slug, outgoing)).attachments; await api.sendMessage(active.slug, { content, attachments, model: selectedProvider && selectedModel ? { provider: selectedProvider, modelId: selectedModel } : undefined, thinkingLevel }); } catch (error) { showError(error instanceof Error ? error.message : String(error)); } };
   const saveEdit = async (entry: any) => { if (!active || !editingDraft.trim()) return; try { await api.editMessage(active.slug, entry.id, { content: editingDraft.trim(), model: selectedProvider && selectedModel ? { provider: selectedProvider, modelId: selectedModel } : undefined, thinkingLevel }); setEditingEntryId(""); setEditingDraft(""); await openSession(active, false); } catch (error) { showError(error instanceof Error ? error.message : String(error)); } };
 
-  return <div className={cn("app", sidebarCollapsed && "collapsed")}>
+  return <div className={cn("app", sidebarCollapsed && "collapsed", mobileSidebarOpen && "mobile-sidebar-open")}>
     <aside className="sidebar">
       <div className="brand"><h2>Memoryhold</h2><button className="icon ghost" onClick={() => setSidebarCollapsed(true)}><PanelLeftClose size={18}/></button></div>
-      <button className="nav" onClick={newSession}><Plus size={18}/>New chat</button>
-      <button className={cn("nav", view === "settings" && "active")} onClick={() => setView("settings")}><Settings size={18}/>Settings</button>
+      <button className="nav" onClick={async () => { await newSession(); setMobileSidebarOpen(false); }}><Plus size={18}/>New chat</button>
+      <button className={cn("nav", view === "settings" && "active")} onClick={() => { setView("settings"); setMobileSidebarOpen(false); }}><Settings size={18}/>Settings</button>
       <h3>Recents</h3>
       <div className="session-list">{sessions.map((s) => <ContextMenu.Root key={s.slug}>
-        <ContextMenu.Trigger asChild><div onClick={() => openSession(s)} className={cn("session", active?.slug === s.slug && "active")}>{renamingSlug === s.slug ? <input ref={renameRef} className="rename-input" value={renamingTitle} onClick={(e) => e.stopPropagation()} onChange={(e) => setRenamingTitle(e.target.value)} onBlur={() => saveRename(s)} onKeyDown={(e) => { if (e.key === "Enter") void saveRename(s); if (e.key === "Escape") setRenamingSlug(""); }} /> : <span>{s.title}</span>}</div></ContextMenu.Trigger>
+        <ContextMenu.Trigger asChild><div onClick={() => { void openSession(s); setMobileSidebarOpen(false); }} className={cn("session", active?.slug === s.slug && "active")}>{renamingSlug === s.slug ? <input ref={renameRef} className="rename-input" value={renamingTitle} onClick={(e) => e.stopPropagation()} onChange={(e) => setRenamingTitle(e.target.value)} onBlur={() => saveRename(s)} onKeyDown={(e) => { if (e.key === "Enter") void saveRename(s); if (e.key === "Escape") setRenamingSlug(""); }} /> : <span>{s.title}</span>}</div></ContextMenu.Trigger>
         <ContextMenu.Portal><ContextMenu.Content className="menu"><ContextMenu.Item className="menu-item" onSelect={() => { setRenamingSlug(s.slug); setRenamingTitle(s.title); }}><Edit3 size={15}/>Rename</ContextMenu.Item><ContextMenu.Item className="menu-item danger" onSelect={() => setDeleteCandidate(s)}><Trash2 size={15}/>Delete</ContextMenu.Item></ContextMenu.Content></ContextMenu.Portal>
       </ContextMenu.Root>)}</div>
     </aside>
+    <button className="sidebar-backdrop" aria-label="Close sidebar" onClick={() => setMobileSidebarOpen(false)}/>
     <main className="main">
-      <header className="topbar"><div className="top-left">{sidebarCollapsed && <button className="icon ghost" onClick={() => setSidebarCollapsed(false)}><PanelLeftOpen size={18}/></button>}<div><strong>{view === "settings" ? "Settings" : active?.title ?? "No conversation selected"}</strong><small>{view === "settings" ? "Accounts, providers, and defaults" : `${selectedProvider}${selectedModel ? ` / ${selectedModel}` : ""}`}</small></div></div><span className="status">{isStreaming ? "Streaming" : "Ready"}</span></header>
+      <header className="topbar"><div className="top-left"><button className="icon ghost mobile-menu" onClick={() => setMobileSidebarOpen(true)}><Menu size={18}/></button>{sidebarCollapsed && <button className="icon ghost desktop-only" onClick={() => setSidebarCollapsed(false)}><PanelLeftOpen size={18}/></button>}<div><strong>{view === "settings" ? "Settings" : active?.title ?? "No conversation selected"}</strong><small>{view === "settings" ? "Accounts, providers, and defaults" : `${selectedProvider}${selectedModel ? ` / ${selectedModel}` : ""}`}</small></div></div><span className="status">{isStreaming ? "Streaming" : "Ready"}</span></header>
       {errorMessage && <div className="error" role="alert"><span>{errorMessage}</span><button type="button" aria-label="Dismiss error" onClick={() => setErrorMessage("")}><X size={15}/></button></div>}
       {view === "settings" ? <SettingsView oauthProviders={oauthProviders} startOAuth={startOAuth} loginId={loginId} callbackInput={callbackInput} setCallbackInput={setCallbackInput} completeOAuth={completeOAuth} providers={providers} selectedProvider={selectedProvider} setSelectedProvider={(p: string) => { setSelectedProvider(p); setSelectedModel(providers.find((x) => x.id === p)?.models[0]?.id ?? ""); }} selectedModel={selectedModel} setSelectedModel={setSelectedModel} thinkingLevel={thinkingLevel} setThinkingLevel={setThinkingLevel} apiBaseUrl={apiBaseUrl} connectionStatus={connectionStatus} setConnectionStatus={setConnectionStatus} saveBackend={(url: string) => { const normalized = normalizeApiBaseUrl(url); saveBackendUrl(normalized); setApiBaseUrl(normalized || DEFAULT_API_BASE_URL); setSessions([]); setActive(undefined); setEntries([]); eventSource.current?.close(); }}/> : <>
         <div className="messages" ref={messagesRef}>{active ? <div className="thread">{entries.map((e: any) => shouldShowMessage(e) ? <Message key={e.id} entry={e} active={active} api={api} editing={editingEntryId === e.id} editingDraft={editingDraft} setEditingDraft={setEditingDraft} saveEdit={saveEdit} cancelEdit={() => setEditingEntryId("")} startEdit={() => { setEditingEntryId(e.id); setEditingDraft(displayText(e.message)); }} /> : null)}{(isStreaming || streamingContent) && <div className="msg assistant"><Avatar>M</Avatar><div className="message-body"><div className="role">assistant · streaming</div><div className="bubble">{streamingContent ? <Markdown text={streamingContent}/> : <Thinking/>}</div></div></div>}</div> : <div className="empty"><h1>Your local AI memory.</h1><p>Create or select a conversation to start chatting.</p></div>}</div>
