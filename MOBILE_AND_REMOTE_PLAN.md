@@ -219,11 +219,11 @@ Goal: add an Android Capacitor app that can connect to a Memoryhold server, add 
     - [x] how config is persisted
     - [x] how to return to local mode
   - [ ] Add troubleshooting section
-    - [ ] Android cannot reach `localhost`
-    - [ ] server blocked by firewall
+    - [x] Android cannot reach `localhost`
+    - [x] server blocked by firewall
     - [ ] CORS/auth failures
-    - [ ] SSE/reverse proxy buffering problems
-    - [ ] OAuth callback issues
+    - [x] SSE/reverse proxy buffering problems
+    - [x] OAuth callback issues
 
 - [ ] 10. Testing and acceptance checklist
   - [ ] Existing browser dev mode still works

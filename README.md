@@ -107,6 +107,14 @@ Backend URL examples:
 
 For dev HTTP backends, the Android project allows cleartext traffic. Do not expose an unauthenticated Memoryhold server directly to the public internet.
 
+### Mobile/remote troubleshooting
+
+- Android cannot reach `localhost`: use `http://10.0.2.2:8787` in the emulator or the server machine’s LAN IP on a physical phone.
+- Server unreachable from phone: check OS firewall settings and that the phone and server are on the same network/VPN.
+- Android build fails before opening Android Studio: install Android Studio/JDK and the Android SDK, then retry `pnpm mobile:build`.
+- SSE/streaming behind a reverse proxy: disable response buffering for `/api/sessions/*/events`.
+- OAuth callback does not complete automatically: use the paste-code/callback field in Settings.
+
 ## Package the desktop app
 
 ```bash
