@@ -144,6 +144,12 @@ body {
   gap: 12px;
   min-width: 0;
 }
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
 .top-left strong {
   display: block;
   max-width: 60vw;
@@ -151,6 +157,20 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 15px;
+}
+.icon.ai-title-button {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 5px;
+  color: #71717a;
+}
+.icon.ai-title-button svg {
+  width: 14px;
+  height: 14px;
+}
+.icon.ai-title-button.ghost:hover {
+  background: #f4f4f5;
 }
 .top-left small,
 .status,

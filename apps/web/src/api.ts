@@ -237,6 +237,13 @@ export class MemoryholdApi {
       {},
     );
   }
+  async generateTitle(slug: string, body: unknown) {
+    return this.sendJson<SessionMetadata>(
+      `/api/sessions/${encodeURIComponent(slug)}/generate-title`,
+      "POST",
+      body,
+    );
+  }
   async editMessage(slug: string, entryId: string, body: unknown) {
     return this.sendJson<any>(
       `/api/sessions/${encodeURIComponent(slug)}/messages/${encodeURIComponent(entryId)}`,

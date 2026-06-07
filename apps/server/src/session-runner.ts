@@ -4,7 +4,12 @@ import {
   type AgentMessage,
   type ThinkingLevel,
 } from "@earendil-works/pi-agent-core";
-import { getModel, streamSimple } from "@earendil-works/pi-ai";
+import {
+  completeSimple,
+  getModel,
+  parseJsonWithRepair,
+  streamSimple,
+} from "@earendil-works/pi-ai";
 import { PDFParse } from "pdf-parse";
 import type {
   MessageEntry,
@@ -118,6 +123,69 @@ export class SessionRunner {
     state.agent.clearAllQueues();
     state.agent.abort();
     return true;
+  }
+
+  async generateTitle(
+    slug: string,
+    options: {
+      model?: { provider: string; modelId: string };
+    } = {},
+  ) {
+    if (this.isStreaming(slug)) {
+      throw new Error("Cannot generate a title while a response is streaming");
+    }
+    const { metadata, entries } = await this.repo.get(slug);
+    const modelRef = options.model ?? this.latestModel(entries);
+    if (!modelRef) {
+      throw new Error(
+        "Cannot generate a title before a model has been selected for this conversation",
+      );
+    }
+    const model = getModel(modelRef.provider as any, modelRef.modelId as any);
+    const apiKey = await this.authStore.getApiKey(modelRef.provider);
+    if (!apiKey) {
+      throw new Error(
+        `No credentials configured for provider '${modelRef.provider}'. Use the OAuth panel or set the provider API key in the server environment.`,
+      );
+    }
+    const conversation = this.titleTranscript(entriesToMessages(entries));
+    if (!conversation)
+      throw new Error("Cannot generate a title for an empty conversation");
+    const response = await completeSimple(
+      model as any,
+      {
+        systemPrompt:
+          'You generate short, descriptive conversation titles. Return exactly one valid JSON object and no prose, markdown, or code fences. The JSON schema is {"title": string}.',
+        messages: [
+          {
+            role: "user",
+            timestamp: Date.now(),
+            content: `Generate a title for this conversation.\n\nRules:\n- 3 to 8 words\n- no quotes\n- no trailing punctuation\n- be specific\n- return exactly one JSON object like {"title":"Example Title"}\n\nConversation:\n${conversation}`,
+          },
+        ],
+      },
+      {
+        apiKey,
+        maxTokens: 40,
+        reasoning: "low",
+        sessionId: metadata.id,
+      },
+    );
+    const title = this.titleFromModelResponse(messageText(response));
+    if (!title) throw new Error("The model did not return a title");
+    const updatedMetadata = await this.repo.rename(slug, title);
+    this.reset(slug);
+    this.events.publish(slug, {
+      type: "session_updated",
+      metadata: updatedMetadata,
+    });
+    if (updatedMetadata.slug !== slug) {
+      this.events.publish(updatedMetadata.slug, {
+        type: "session_updated",
+        metadata: updatedMetadata,
+      });
+    }
+    return updatedMetadata;
   }
 
   async enqueueUserMessage(
@@ -288,6 +356,39 @@ export class SessionRunner {
     }
   }
 
+  private titleTranscript(messages: AgentMessage[]): string {
+    const lines = messages
+      .filter(
+        (message) => message.role === "user" || message.role === "assistant",
+      )
+      .map((message) => {
+        const speaker = message.role === "user" ? "User" : "Assistant";
+        return `${speaker}: ${messageText(message)}`.trim();
+      })
+      .filter((line) => !/^(User|Assistant):\s*$/.test(line));
+    return truncateText(lines.join("\n\n"), 12_000);
+  }
+
+  private titleFromModelResponse(response: string): string {
+    try {
+      const json = response.match(/\{[\s\S]*\}/)?.[0] ?? response;
+      const titleResponse = parseJsonWithRepair<{ title?: unknown }>(json);
+      return this.cleanGeneratedTitle(String(titleResponse.title ?? ""));
+    } catch {
+      return this.cleanGeneratedTitle(response);
+    }
+  }
+
+  private cleanGeneratedTitle(title: string): string {
+    return title
+      .split("\n")[0]
+      .replace(/^Title:\s*/i, "")
+      .replace(/["“”'‘’]/g, "")
+      .replace(/[.!?。！？]+$/g, "")
+      .trim()
+      .slice(0, 80);
+  }
+
   private async getOrCreateState(
     slug: string,
     options: {
@@ -299,11 +400,12 @@ export class SessionRunner {
     if (existing) return existing;
 
     const { metadata, entries } = await this.repo.get(slug);
-    const modelRef = options.model ??
-      this.latestModel(entries) ?? {
-        provider: "openai",
-        modelId: "gpt-4o-mini",
-      };
+    const modelRef = options.model ?? this.latestModel(entries);
+    if (!modelRef) {
+      throw new Error(
+        "Cannot start generation before a model has been selected for this conversation",
+      );
+    }
     const thinkingLevel = (options.thinkingLevel ??
       this.latestThinkingLevel(entries) ??
       "off") as ThinkingLevel;

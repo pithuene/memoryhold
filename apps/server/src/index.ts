@@ -142,6 +142,21 @@ app.post("/api/sessions/:slug/stop", (context) => {
   return context.json({ ok: true, stopped: runner.stop(slug) });
 });
 
+app.post("/api/sessions/:slug/generate-title", async (context) => {
+  const slug = context.req.param("slug");
+  if (runner.isStreaming(slug)) {
+    return context.text(
+      "Cannot generate a title while a response is streaming",
+      409,
+    );
+  }
+  const body = await context.req.json().catch(() => ({}));
+  const metadata = await runner.generateTitle(slug, {
+    model: body.model,
+  });
+  return context.json(metadata);
+});
+
 app.post("/api/sessions/:slug/messages", async (c) => {
   const slug = c.req.param("slug");
   const body = (await c.req.json()) as SendMessageRequest;

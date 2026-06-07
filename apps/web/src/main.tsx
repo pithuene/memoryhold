@@ -11,6 +11,7 @@ import {
   Paperclip,
   Plus,
   Settings,
+  Sparkles,
   Square,
   Trash2,
   X,
@@ -84,6 +85,7 @@ function App() {
   const [draft, setDraft] = useState("");
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -359,6 +361,27 @@ function App() {
     }
   };
 
+  const generateTitle = async () => {
+    if (!active || isStreaming || isGeneratingTitle) return;
+    setIsGeneratingTitle(true);
+    try {
+      const metadata = await api.generateTitle(active.slug, {
+        model:
+          selectedProvider && selectedModel
+            ? { provider: selectedProvider, modelId: selectedModel }
+            : undefined,
+      });
+      setSessions((items) =>
+        items.map((item) => (item.id === metadata.id ? metadata : item)),
+      );
+      setActive(metadata);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsGeneratingTitle(false);
+    }
+  };
+
   const isGeneratingResponse = isStreaming || Boolean(streamingContent);
 
   const send = async (ev: React.FormEvent) => {
@@ -548,11 +571,25 @@ function App() {
               </button>
             )}
             <div>
-              <strong>
-                {view === "settings"
-                  ? "Settings"
-                  : (active?.title ?? "No conversation selected")}
-              </strong>
+              <div className="title-row">
+                <strong>
+                  {view === "settings"
+                    ? "Settings"
+                    : (active?.title ?? "No conversation selected")}
+                </strong>
+                {view !== "settings" && active && (
+                  <button
+                    className="icon ghost ai-title-button"
+                    type="button"
+                    title="Generate title"
+                    aria-label="Generate title"
+                    disabled={isStreaming || isGeneratingTitle}
+                    onClick={generateTitle}
+                  >
+                    <Sparkles size={15} />
+                  </button>
+                )}
+              </div>
               <small>
                 {view === "settings"
                   ? "Accounts, providers, and defaults"
