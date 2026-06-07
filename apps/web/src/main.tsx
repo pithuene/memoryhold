@@ -111,6 +111,7 @@ function App() {
   const [deleteCandidate, setDeleteCandidate] = useState<SessionMetadata>();
   const eventSource = useRef<EventSource | undefined>(undefined);
   const messagesRef = useRef<HTMLDivElement>(null);
+  const shouldStickToBottomRef = useRef(true);
   const renameRef = useRef<HTMLInputElement>(null);
   const activeRef = useRef<SessionMetadata | undefined>(undefined);
   activeRef.current = active;
@@ -131,6 +132,7 @@ function App() {
   ) => {
     if (renamingSlug && !force) return;
     eventSource.current?.close();
+    shouldStickToBottomRef.current = true;
     setStreamingContent("");
     setIsStreaming(false);
     setErrorMessage("");
@@ -249,7 +251,9 @@ function App() {
     saveModelSettings(provider, modelId, thinkingLevelValue);
   };
   useEffect(() => {
-    messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight });
+    const messagesElement = messagesRef.current;
+    if (!messagesElement || !shouldStickToBottomRef.current) return;
+    messagesElement.scrollTo({ top: messagesElement.scrollHeight });
   }, [entries, streamingContent]);
   useEffect(() => {
     if (renamingSlug) renameRef.current?.select();
@@ -618,7 +622,24 @@ function App() {
           />
         ) : (
           <>
-            <div className="messages" ref={messagesRef}>
+            <div
+              className="messages"
+              ref={messagesRef}
+              onWheel={(event) => {
+                if (event.deltaY < 0) shouldStickToBottomRef.current = false;
+              }}
+              onTouchMove={() => {
+                shouldStickToBottomRef.current = false;
+              }}
+              onScroll={(event) => {
+                const messagesElement = event.currentTarget;
+                const distanceFromBottom =
+                  messagesElement.scrollHeight -
+                  messagesElement.scrollTop -
+                  messagesElement.clientHeight;
+                shouldStickToBottomRef.current = distanceFromBottom <= 1;
+              }}
+            >
               {!active && connectionStatus && !connectionStatus.ok ? (
                 <ConnectionEmpty
                   status={connectionStatus}
