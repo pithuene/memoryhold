@@ -230,6 +230,13 @@ export class MemoryholdApi {
       body,
     );
   }
+  async stopMessage(slug: string) {
+    return this.sendJson<{ ok: true; stopped: boolean }>(
+      `/api/sessions/${encodeURIComponent(slug)}/stop`,
+      "POST",
+      {},
+    );
+  }
   async editMessage(slug: string, entryId: string, body: unknown) {
     return this.sendJson<any>(
       `/api/sessions/${encodeURIComponent(slug)}/messages/${encodeURIComponent(entryId)}`,

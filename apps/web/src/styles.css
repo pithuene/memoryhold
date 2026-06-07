@@ -287,6 +287,18 @@ small {
   border-radius: 18px;
   padding: 10px 14px;
 }
+.markdown + .message-status {
+  margin-top: 10px;
+}
+.message-status {
+  display: inline-flex;
+  align-items: center;
+  border-left: 3px solid #d4d4d8;
+  padding-left: 10px;
+  color: #71717a;
+  font-size: 13px;
+  font-style: italic;
+}
 .message-actions {
   display: flex;
   gap: 4px;
@@ -413,6 +425,18 @@ small {
 .composer button:disabled {
   background: #d4d4d8;
   cursor: not-allowed;
+}
+.composer .stop-button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  padding: 0;
+  background: #dc2626;
+}
+.composer .stop-button:hover {
+  background: #b91c1c;
 }
 .attach {
   width: 40px;

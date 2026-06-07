@@ -137,6 +137,11 @@ app.get("/api/sessions/:slug/attachments/:filename", async (c) => {
   return new Response(new Uint8Array(bytes));
 });
 
+app.post("/api/sessions/:slug/stop", (context) => {
+  const slug = context.req.param("slug");
+  return context.json({ ok: true, stopped: runner.stop(slug) });
+});
+
 app.post("/api/sessions/:slug/messages", async (c) => {
   const slug = c.req.param("slug");
   const body = (await c.req.json()) as SendMessageRequest;

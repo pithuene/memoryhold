@@ -11,6 +11,7 @@ import {
   Paperclip,
   Plus,
   Settings,
+  Square,
   Trash2,
   X,
 } from "lucide-react";
@@ -349,8 +350,20 @@ function App() {
     }
   };
 
+  const stopStreaming = async () => {
+    if (!active) return;
+    try {
+      await api.stopMessage(active.slug);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const isGeneratingResponse = isStreaming || Boolean(streamingContent);
+
   const send = async (ev: React.FormEvent) => {
     ev.preventDefault();
+    if (isGeneratingResponse) return stopStreaming();
     if (!active || !draft.trim()) return;
     setErrorMessage("");
     const content = draft;
@@ -746,8 +759,19 @@ function App() {
                       : "Create or select a conversation"
                   }
                 />
-                <button type="submit" disabled={!active || !draft.trim()}>
-                  Send
+                <button
+                  className={cn(isGeneratingResponse && "stop-button")}
+                  type="submit"
+                  disabled={!active || (!isGeneratingResponse && !draft.trim())}
+                  aria-label={
+                    isGeneratingResponse ? "Stop generation" : "Send message"
+                  }
+                >
+                  {isGeneratingResponse ? (
+                    <Square size={14} fill="currentColor" />
+                  ) : (
+                    "Send"
+                  )}
                 </button>
               </div>
             </form>
@@ -1086,6 +1110,9 @@ function Message({
 }: any) {
   const role =
     entry.message.role === "toolResult" ? "tool" : entry.message.role;
+  const isAbortedMessage =
+    entry.message.stopReason === "aborted" ||
+    /request was aborted|aborterror/i.test(entry.message.errorMessage ?? "");
   const text = displayText(entry.message);
   return (
     <div
@@ -1093,7 +1120,10 @@ function Message({
         "msg",
         role,
         "no-message-chrome",
-        entry.message.stopReason === "error" && "error-msg",
+        entry.message.stopReason === "error" &&
+          !isAbortedMessage &&
+          "error-msg",
+        isAbortedMessage && "aborted-msg",
         editing && "editing",
       )}
     >
@@ -1138,16 +1168,23 @@ function Message({
                 active={active}
                 api={api}
               />
-              <Markdown
-                text={[
-                  text,
-                  entry.message.errorMessage
-                    ? `Error: ${entry.message.errorMessage}`
-                    : "",
-                ]
-                  .filter(Boolean)
-                  .join("\n\n")}
-              />
+              {isAbortedMessage ? (
+                <>
+                  {text && <Markdown text={text} />}
+                  <div className="message-status">Generation stopped</div>
+                </>
+              ) : (
+                <Markdown
+                  text={[
+                    text,
+                    entry.message.errorMessage
+                      ? `Error: ${entry.message.errorMessage}`
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join("\n\n")}
+                />
+              )}
             </>
           )}
         </div>

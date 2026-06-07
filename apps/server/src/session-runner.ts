@@ -112,6 +112,14 @@ export class SessionRunner {
     this.states.delete(slug);
   }
 
+  stop(slug: string): boolean {
+    const state = this.states.get(slug);
+    if (!state?.agent.state.isStreaming) return false;
+    state.agent.clearAllQueues();
+    state.agent.abort();
+    return true;
+  }
+
   async enqueueUserMessage(
     slug: string,
     content: string,
@@ -336,10 +344,16 @@ export class SessionRunner {
     this.events.publish(slug, { type: "stream_status", isStreaming: true });
     try {
       await state.agent.prompt(message);
-      if (state.agent.state.errorMessage) {
+      const streamingMessage = state.agent.state.streamingMessage as any;
+      if (
+        state.agent.state.errorMessage &&
+        !this.isAbortMessage(state.agent.state.errorMessage) &&
+        streamingMessage?.stopReason !== "aborted"
+      ) {
         await this.persistSyntheticError(slug, state.agent.state.errorMessage);
       }
     } catch (error) {
+      if (this.isAbortError(error)) return;
       const message = error instanceof Error ? error.message : String(error);
       this.events.publish(slug, { type: "error", message });
       await this.persistSyntheticError(slug, message);
@@ -347,6 +361,20 @@ export class SessionRunner {
       state.isStreaming = false;
       this.events.publish(slug, { type: "stream_status", isStreaming: false });
     }
+  }
+
+  private isAbortError(error: unknown): boolean {
+    return (
+      (error instanceof DOMException && error.name === "AbortError") ||
+      (error instanceof Error && error.name === "AbortError") ||
+      this.isAbortMessage(
+        error instanceof Error ? error.message : String(error),
+      )
+    );
+  }
+
+  private isAbortMessage(message: string): boolean {
+    return /request was aborted|aborterror/i.test(message);
   }
 
   private async persistSyntheticError(
@@ -373,7 +401,11 @@ export class SessionRunner {
   ): Promise<void> {
     if (event.type === "agent_end") {
       const last = event.messages[event.messages.length - 1] as any;
-      if (last?.errorMessage)
+      if (
+        last?.errorMessage &&
+        last.stopReason !== "aborted" &&
+        !this.isAbortMessage(last.errorMessage)
+      )
         this.events.publish(slug, {
           type: "error",
           message: last.errorMessage,
@@ -397,7 +429,11 @@ export class SessionRunner {
       message.role !== "toolResult"
     )
       return;
-    if (message.errorMessage)
+    if (
+      message.errorMessage &&
+      message.stopReason !== "aborted" &&
+      !this.isAbortMessage(message.errorMessage)
+    )
       this.events.publish(slug, {
         type: "error",
         message: message.errorMessage,
