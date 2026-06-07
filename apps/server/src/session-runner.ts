@@ -1,7 +1,16 @@
-import { Agent, type AgentEvent, type AgentMessage, type ThinkingLevel } from "@earendil-works/pi-agent-core";
+import {
+  Agent,
+  type AgentEvent,
+  type AgentMessage,
+  type ThinkingLevel,
+} from "@earendil-works/pi-agent-core";
 import { getModel, streamSimple } from "@earendil-works/pi-ai";
 import { PDFParse } from "pdf-parse";
-import type { MessageEntry, ServerEvent, UploadedAttachmentRef } from "@memoryhold/shared";
+import type {
+  MessageEntry,
+  ServerEvent,
+  UploadedAttachmentRef,
+} from "@memoryhold/shared";
 import { AuthStore } from "./auth-store.js";
 import { EventHub } from "./events.js";
 import { messageText, entriesToMessages } from "./message-utils.js";
@@ -25,30 +34,65 @@ interface AttachmentContextResult {
 }
 
 function isImageAttachment(attachment: UploadedAttachmentRef): boolean {
-  return attachment.mimeType?.startsWith("image/") || /\.(png|jpe?g|gif|webp)$/i.test(attachment.filename);
+  return (
+    attachment.mimeType?.startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp)$/i.test(attachment.filename)
+  );
 }
 
 function isPdfAttachment(attachment: UploadedAttachmentRef): boolean {
-  return attachment.mimeType === "application/pdf" || attachment.filename.toLowerCase().endsWith(".pdf");
+  return (
+    attachment.mimeType === "application/pdf" ||
+    attachment.filename.toLowerCase().endsWith(".pdf")
+  );
 }
 
-async function userMessage(repo: SessionRepo, slug: string, content: string, attachmentContext: AttachmentContextResult, attachments: UploadedAttachmentRef[]): Promise<AgentMessage> {
-  const suffix = attachmentContext.text ? `\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>\n${attachmentContext.text}\n</MEMORYHOLD_ATTACHMENT_CONTEXT>` : "";
+async function userMessage(
+  repo: SessionRepo,
+  slug: string,
+  content: string,
+  attachmentContext: AttachmentContextResult,
+  attachments: UploadedAttachmentRef[],
+): Promise<AgentMessage> {
+  const suffix = attachmentContext.text
+    ? `\n\n<MEMORYHOLD_ATTACHMENT_CONTEXT>\n${attachmentContext.text}\n</MEMORYHOLD_ATTACHMENT_CONTEXT>`
+    : "";
   const blocks: any[] = [{ type: "text", text: content + suffix }];
   for (const page of attachmentContext.renderedPdfPages) {
-    blocks.push({ type: "text", text: `PDF preview image: ${page.filename}, page ${page.pageNumber}` });
-    blocks.push({ type: "image", data: page.data.toString("base64"), mimeType: "image/png" });
+    blocks.push({
+      type: "text",
+      text: `PDF preview image: ${page.filename}, page ${page.pageNumber}`,
+    });
+    blocks.push({
+      type: "image",
+      data: page.data.toString("base64"),
+      mimeType: "image/png",
+    });
   }
   for (const attachment of attachments.filter(isImageAttachment)) {
     const bytes = await repo.readAttachment(slug, attachment.relativePath);
-    blocks.push({ type: "image", data: bytes.toString("base64"), mimeType: attachment.mimeType || "image/jpeg" });
+    blocks.push({
+      type: "image",
+      data: bytes.toString("base64"),
+      mimeType: attachment.mimeType || "image/jpeg",
+    });
   }
-  return { role: "user", content: blocks, attachments, timestamp: Date.now() } as AgentMessage;
+  return {
+    role: "user",
+    content: blocks,
+    attachments,
+    timestamp: Date.now(),
+  } as AgentMessage;
 }
 
 function truncateText(text: string, maxChars = 40_000): string {
-  const normalized = text.replace(/\r\n/g, "\n").replace(/\n{4,}/g, "\n\n\n").trim();
-  return normalized.length > maxChars ? `${normalized.slice(0, maxChars)}\n\n[Attachment text truncated at ${maxChars} characters.]` : normalized;
+  const normalized = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+  return normalized.length > maxChars
+    ? `${normalized.slice(0, maxChars)}\n\n[Attachment text truncated at ${maxChars} characters.]`
+    : normalized;
 }
 
 export class SessionRunner {
@@ -72,22 +116,50 @@ export class SessionRunner {
     slug: string,
     content: string,
     attachments: UploadedAttachmentRef[] = [],
-    options: { model?: { provider: string; modelId: string }; thinkingLevel?: string } = {},
+    options: {
+      model?: { provider: string; modelId: string };
+      thinkingLevel?: string;
+    } = {},
   ): Promise<{ queued: boolean }> {
     const state = await this.getOrCreateState(slug, options);
     if (options.model) {
-      state.agent.state.model = getModel(options.model.provider as any, options.model.modelId as any);
-      const modelEntry = await this.repo.appendModelChange(slug, options.model.provider, options.model.modelId);
-      await this.publishSessionUpdate(slug, { type: "entry_appended", entry: modelEntry });
+      state.agent.state.model = getModel(
+        options.model.provider as any,
+        options.model.modelId as any,
+      );
+      const modelEntry = await this.repo.appendModelChange(
+        slug,
+        options.model.provider,
+        options.model.modelId,
+      );
+      await this.publishSessionUpdate(slug, {
+        type: "entry_appended",
+        entry: modelEntry,
+      });
     }
     if (options.thinkingLevel) {
       state.agent.state.thinkingLevel = options.thinkingLevel as ThinkingLevel;
-      const thinkingEntry = await this.repo.appendThinkingLevelChange(slug, options.thinkingLevel);
-      await this.publishSessionUpdate(slug, { type: "entry_appended", entry: thinkingEntry });
+      const thinkingEntry = await this.repo.appendThinkingLevelChange(
+        slug,
+        options.thinkingLevel,
+      );
+      await this.publishSessionUpdate(slug, {
+        type: "entry_appended",
+        entry: thinkingEntry,
+      });
     }
 
-    const attachmentContext = await this.buildAttachmentContext(slug, attachments);
-    const message = await userMessage(this.repo, slug, content, attachmentContext, attachments);
+    const attachmentContext = await this.buildAttachmentContext(
+      slug,
+      attachments,
+    );
+    const message = await userMessage(
+      this.repo,
+      slug,
+      content,
+      attachmentContext,
+      attachments,
+    );
     if (state.agent.state.isStreaming) {
       state.agent.steer(message);
       return { queued: true };
@@ -97,16 +169,26 @@ export class SessionRunner {
     return { queued: false };
   }
 
-  private async buildAttachmentContext(slug: string, attachments: UploadedAttachmentRef[]): Promise<AttachmentContextResult> {
+  private async buildAttachmentContext(
+    slug: string,
+    attachments: UploadedAttachmentRef[],
+  ): Promise<AttachmentContextResult> {
     if (!attachments.length) return { text: "", renderedPdfPages: [] };
-    const textAttachments = attachments.filter((attachment) => !isImageAttachment(attachment));
+    const textAttachments = attachments.filter(
+      (attachment) => !isImageAttachment(attachment),
+    );
     if (!textAttachments.length) return { text: "", renderedPdfPages: [] };
-    const sections: string[] = ["The user attached file(s). Their extracted contents are included below. Use them to answer questions about the files. Image attachments are sent as image inputs separately. If PDF text extraction fails or the PDF has no embedded text, rendered preview images of the first pages are sent as image inputs separately."];
+    const sections: string[] = [
+      "The user attached file(s). Their extracted contents are included below. Use them to answer questions about the files. Image attachments are sent as image inputs separately. If PDF text extraction fails or the PDF has no embedded text, rendered preview images of the first pages are sent as image inputs separately.",
+    ];
     const renderedPdfPages: RenderedPdfPage[] = [];
     for (const attachment of textAttachments) {
       const header = `Attachment: ${attachment.filename} (${attachment.mimeType || "unknown type"}, ${attachment.relativePath})`;
       try {
-        const bytes = await this.repo.readAttachment(slug, attachment.relativePath);
+        const bytes = await this.repo.readAttachment(
+          slug,
+          attachment.relativePath,
+        );
         const lowerName = attachment.filename.toLowerCase();
         const mimeType = attachment.mimeType ?? "";
         if (isPdfAttachment(attachment)) {
@@ -114,30 +196,50 @@ export class SessionRunner {
           if (result.text.trim()) {
             sections.push(`${header}\n\n${truncateText(result.text)}`);
           } else {
-            const pages = await this.renderPdfPreviewPages(attachment.filename, bytes);
+            const pages = await this.renderPdfPreviewPages(
+              attachment.filename,
+              bytes,
+            );
             renderedPdfPages.push(...pages);
-            const fallback = pages.length ? `[No extractable PDF text found. Rendered ${pages.length} page preview image(s) for vision reading.]` : "[No extractable PDF text found and page preview rendering failed.]";
+            const fallback = pages.length
+              ? `[No extractable PDF text found. Rendered ${pages.length} page preview image(s) for vision reading.]`
+              : "[No extractable PDF text found and page preview rendering failed.]";
             sections.push(`${header}\n\n${fallback}`);
           }
-        } else if (mimeType.startsWith("text/") || /\.(md|txt|csv|json|xml|html|log|ts|tsx|js|jsx|py|rs|go|java|c|cpp|h)$/i.test(lowerName)) {
+        } else if (
+          mimeType.startsWith("text/") ||
+          /\.(md|txt|csv|json|xml|html|log|ts|tsx|js|jsx|py|rs|go|java|c|cpp|h)$/i.test(
+            lowerName,
+          )
+        ) {
           sections.push(`${header}\n\n${truncateText(bytes.toString("utf8"))}`);
         } else {
-          sections.push(`${header}\n\n[Unsupported attachment type for text extraction.]`);
+          sections.push(
+            `${header}\n\n[Unsupported attachment type for text extraction.]`,
+          );
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         let rendered = 0;
         if (isPdfAttachment(attachment)) {
           try {
-            const bytes = await this.repo.readAttachment(slug, attachment.relativePath);
-            const pages = await this.renderPdfPreviewPages(attachment.filename, bytes);
+            const bytes = await this.repo.readAttachment(
+              slug,
+              attachment.relativePath,
+            );
+            const pages = await this.renderPdfPreviewPages(
+              attachment.filename,
+              bytes,
+            );
             renderedPdfPages.push(...pages);
             rendered = pages.length;
           } catch {
             rendered = 0;
           }
         }
-        sections.push(`${header}\n\n[Could not read/extract attachment: ${message}${rendered ? `. Rendered ${rendered} page preview image(s) for vision reading.` : ""}]`);
+        sections.push(
+          `${header}\n\n[Could not read/extract attachment: ${message}${rendered ? `. Rendered ${rendered} page preview image(s) for vision reading.` : ""}]`,
+        );
       }
     }
     return { text: sections.join("\n\n---\n\n"), renderedPdfPages };
@@ -153,37 +255,65 @@ export class SessionRunner {
     }
   }
 
-  private async renderPdfPreviewPages(filename: string, bytes: Buffer, maxPages = 5): Promise<RenderedPdfPage[]> {
+  private async renderPdfPreviewPages(
+    filename: string,
+    bytes: Buffer,
+    maxPages = 5,
+  ): Promise<RenderedPdfPage[]> {
     const parser = new PDFParse({ data: new Uint8Array(bytes) });
     try {
-      const result = await parser.getScreenshot({ first: maxPages, desiredWidth: 1400, imageBuffer: true, imageDataUrl: false });
+      const result = await parser.getScreenshot({
+        first: maxPages,
+        desiredWidth: 1400,
+        imageBuffer: true,
+        imageDataUrl: false,
+      });
       return result.pages
         .filter((page) => page.data)
-        .map((page) => ({ filename, pageNumber: page.pageNumber, data: Buffer.from(page.data!) }));
+        .map((page) => ({
+          filename,
+          pageNumber: page.pageNumber,
+          data: Buffer.from(page.data!),
+        }));
     } finally {
       await parser.destroy();
     }
   }
 
-  private async getOrCreateState(slug: string, options: { model?: { provider: string; modelId: string }; thinkingLevel?: string }): Promise<RuntimeState> {
+  private async getOrCreateState(
+    slug: string,
+    options: {
+      model?: { provider: string; modelId: string };
+      thinkingLevel?: string;
+    },
+  ): Promise<RuntimeState> {
     const existing = this.states.get(slug);
     if (existing) return existing;
 
     const { metadata, entries } = await this.repo.get(slug);
-    const modelRef = options.model ?? this.latestModel(entries) ?? { provider: "openai", modelId: "gpt-4o-mini" };
-    const thinkingLevel = (options.thinkingLevel ?? this.latestThinkingLevel(entries) ?? "off") as ThinkingLevel;
+    const modelRef = options.model ??
+      this.latestModel(entries) ?? {
+        provider: "openai",
+        modelId: "gpt-4o-mini",
+      };
+    const thinkingLevel = (options.thinkingLevel ??
+      this.latestThinkingLevel(entries) ??
+      "off") as ThinkingLevel;
     const agent = new Agent({
       sessionId: metadata.id,
       streamFn: streamSimple,
       getApiKey: async (provider) => {
         const key = await this.authStore.getApiKey(provider);
         if (!key) {
-          throw new Error(`No credentials configured for provider '${provider}'. Use the OAuth panel or set the provider API key in the server environment.`);
+          throw new Error(
+            `No credentials configured for provider '${provider}'. Use the OAuth panel or set the provider API key in the server environment.`,
+          );
         }
         return key;
       },
       initialState: {
-        systemPrompt: "You are Memoryhold, a helpful assistant. Conversations are stored locally for the user.",
+        systemPrompt:
+          "You are Memoryhold, a helpful assistant. Conversations are stored locally for the user.",
         model: getModel(modelRef.provider as any, modelRef.modelId as any),
         thinkingLevel,
         messages: entriesToMessages(entries),
@@ -197,7 +327,11 @@ export class SessionRunner {
     return state;
   }
 
-  private async runPrompt(slug: string, state: RuntimeState, message: AgentMessage): Promise<void> {
+  private async runPrompt(
+    slug: string,
+    state: RuntimeState,
+    message: AgentMessage,
+  ): Promise<void> {
     state.isStreaming = true;
     this.events.publish(slug, { type: "stream_status", isStreaming: true });
     try {
@@ -215,7 +349,10 @@ export class SessionRunner {
     }
   }
 
-  private async persistSyntheticError(slug: string, errorMessage: string): Promise<void> {
+  private async persistSyntheticError(
+    slug: string,
+    errorMessage: string,
+  ): Promise<void> {
     const errorEntry = await this.repo.appendRawMessage(slug, {
       role: "assistant",
       content: [{ type: "text", text: "" }],
@@ -224,32 +361,58 @@ export class SessionRunner {
       timestamp: Date.now(),
     });
     this.events.publish(slug, { type: "error", message: errorMessage });
-    await this.publishSessionUpdate(slug, { type: "entry_appended", entry: errorEntry });
+    await this.publishSessionUpdate(slug, {
+      type: "entry_appended",
+      entry: errorEntry,
+    });
   }
 
-  private async handleAgentEvent(slug: string, event: AgentEvent): Promise<void> {
+  private async handleAgentEvent(
+    slug: string,
+    event: AgentEvent,
+  ): Promise<void> {
     if (event.type === "agent_end") {
       const last = event.messages[event.messages.length - 1] as any;
-      if (last?.errorMessage) this.events.publish(slug, { type: "error", message: last.errorMessage });
+      if (last?.errorMessage)
+        this.events.publish(slug, {
+          type: "error",
+          message: last.errorMessage,
+        });
       return;
     }
     if (event.type === "message_update") {
-      this.events.publish(slug, { type: "message_update", parentId: null, content: messageText(event.message) });
+      this.events.publish(slug, {
+        type: "message_update",
+        parentId: null,
+        content: messageText(event.message),
+      });
       return;
     }
     if (event.type !== "message_end") return;
 
     const message = event.message as any;
-    if (message.role !== "user" && message.role !== "assistant" && message.role !== "toolResult") return;
-    if (message.errorMessage) this.events.publish(slug, { type: "error", message: message.errorMessage });
+    if (
+      message.role !== "user" &&
+      message.role !== "assistant" &&
+      message.role !== "toolResult"
+    )
+      return;
+    if (message.errorMessage)
+      this.events.publish(slug, {
+        type: "error",
+        message: message.errorMessage,
+      });
     const entry = await this.repo.appendRawMessage(slug, message);
     await this.publishSessionUpdate(slug, { type: "entry_appended", entry });
   }
 
-  private latestModel(entries: any[]): { provider: string; modelId: string } | undefined {
+  private latestModel(
+    entries: any[],
+  ): { provider: string; modelId: string } | undefined {
     for (let i = entries.length - 1; i >= 0; i--) {
       const entry = entries[i];
-      if (entry.type === "model_change") return { provider: entry.provider, modelId: entry.modelId };
+      if (entry.type === "model_change")
+        return { provider: entry.provider, modelId: entry.modelId };
     }
     return undefined;
   }
@@ -262,7 +425,10 @@ export class SessionRunner {
     return undefined;
   }
 
-  private async publishSessionUpdate(slug: string, event: ServerEvent): Promise<void> {
+  private async publishSessionUpdate(
+    slug: string,
+    event: ServerEvent,
+  ): Promise<void> {
     this.events.publish(slug, event);
     const { metadata } = await this.repo.get(slug);
     this.events.publish(slug, { type: "session_updated", metadata });

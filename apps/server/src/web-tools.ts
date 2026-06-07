@@ -23,8 +23,14 @@ const MAX_FETCH_CHARS = 40_000;
 const MAX_SEARCH_SNIPPET_CHARS = 400;
 
 function truncate(text: string, maxChars: number): string {
-  const normalized = text.replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
-  return normalized.length > maxChars ? `${normalized.slice(0, maxChars)}\n\n[Truncated at ${maxChars} characters.]` : normalized;
+  const normalized = text
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return normalized.length > maxChars
+    ? `${normalized.slice(0, maxChars)}\n\n[Truncated at ${maxChars} characters.]`
+    : normalized;
 }
 
 function decodeHtml(value: string): string {
@@ -35,16 +41,23 @@ function decodeHtml(value: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
     .replace(/&#(\d+);/g, (_m, code) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([\da-f]+);/gi, (_m, code) => String.fromCodePoint(parseInt(code, 16)));
+    .replace(/&#x([\da-f]+);/gi, (_m, code) =>
+      String.fromCodePoint(parseInt(code, 16)),
+    );
 }
 
 function stripHtml(html: string): string {
-  return decodeHtml(html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-    .replace(/<\/?(p|div|section|article|main|header|footer|br|li|ul|ol|h[1-6]|blockquote|tr|table)[^>]*>/gi, "\n")
-    .replace(/<[^>]+>/g, " "));
+  return decodeHtml(
+    html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+      .replace(
+        /<\/?(p|div|section|article|main|header|footer|br|li|ul|ol|h[1-6]|blockquote|tr|table)[^>]*>/gi,
+        "\n",
+      )
+      .replace(/<[^>]+>/g, " "),
+  );
 }
 
 function htmlAttr(html: string, regex: RegExp): string | undefined {
@@ -54,22 +67,36 @@ function htmlAttr(html: string, regex: RegExp): string | undefined {
 
 function normalizeUrl(url: string): string {
   const parsed = new URL(url);
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("Only http(s) URLs are supported");
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+    throw new Error("Only http(s) URLs are supported");
   return parsed.toString();
 }
 
-async function fetchText(url: string, options: { maxBytes?: number } = {}): Promise<{ text: string; finalUrl: string; contentType?: string }> {
+async function fetchText(
+  url: string,
+  options: { maxBytes?: number } = {},
+): Promise<{ text: string; finalUrl: string; contentType?: string }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
     const response = await fetch(url, {
       signal: controller.signal,
       redirect: "follow",
-      headers: { "user-agent": USER_AGENT, accept: "text/html,application/xhtml+xml,text/plain,application/json;q=0.8,*/*;q=0.5" },
+      headers: {
+        "user-agent": USER_AGENT,
+        accept:
+          "text/html,application/xhtml+xml,text/plain,application/json;q=0.8,*/*;q=0.5",
+      },
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
     const reader = response.body?.getReader();
-    if (!reader) return { text: await response.text(), finalUrl: response.url, contentType: response.headers.get("content-type") ?? undefined };
+    if (!reader)
+      return {
+        text: await response.text(),
+        finalUrl: response.url,
+        contentType: response.headers.get("content-type") ?? undefined,
+      };
     const chunks: Uint8Array[] = [];
     let total = 0;
     const maxBytes = options.maxBytes ?? MAX_FETCH_BYTES;
@@ -80,55 +107,106 @@ async function fetchText(url: string, options: { maxBytes?: number } = {}): Prom
       if (total > maxBytes) break;
       chunks.push(value);
     }
-    return { text: new TextDecoder().decode(Buffer.concat(chunks)), finalUrl: response.url, contentType: response.headers.get("content-type") ?? undefined };
+    return {
+      text: new TextDecoder().decode(Buffer.concat(chunks)),
+      finalUrl: response.url,
+      contentType: response.headers.get("content-type") ?? undefined,
+    };
   } finally {
     clearTimeout(timeout);
   }
 }
 
-async function exaApiSearch(query: string, numResults: number): Promise<WebSearchResult[]> {
+async function exaApiSearch(
+  query: string,
+  numResults: number,
+): Promise<WebSearchResult[]> {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) return [];
   const response = await fetch("https://api.exa.ai/search", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": apiKey },
-    body: JSON.stringify({ query, numResults, useAutoprompt: true, type: "auto", contents: { text: { maxCharacters: MAX_SEARCH_SNIPPET_CHARS } } }),
+    body: JSON.stringify({
+      query,
+      numResults,
+      useAutoprompt: true,
+      type: "auto",
+      contents: { text: { maxCharacters: MAX_SEARCH_SNIPPET_CHARS } },
+    }),
   });
-  if (!response.ok) throw new Error(`Exa search failed: HTTP ${response.status}`);
-  const data = await response.json() as { results?: Array<{ title?: string; url?: string; text?: string; summary?: string }> };
-  return (data.results ?? []).filter((r) => r.url).map((r) => ({
-    title: r.title?.trim() || r.url!,
-    url: r.url!,
-    snippet: truncate(r.summary || r.text || "", MAX_SEARCH_SNIPPET_CHARS),
-    source: "exa" as const,
-  }));
+  if (!response.ok)
+    throw new Error(`Exa search failed: HTTP ${response.status}`);
+  const data = (await response.json()) as {
+    results?: Array<{
+      title?: string;
+      url?: string;
+      text?: string;
+      summary?: string;
+    }>;
+  };
+  return (data.results ?? [])
+    .filter((r) => r.url)
+    .map((r) => ({
+      title: r.title?.trim() || r.url!,
+      url: r.url!,
+      snippet: truncate(r.summary || r.text || "", MAX_SEARCH_SNIPPET_CHARS),
+      source: "exa" as const,
+    }));
 }
 
 function parseSseJson(text: string): any {
-  const data = text.split("\n").find((line) => line.startsWith("data: "))?.slice(6);
+  const data = text
+    .split("\n")
+    .find((line) => line.startsWith("data: "))
+    ?.slice(6);
   if (!data) throw new Error("MCP response did not contain data event");
   return JSON.parse(data);
 }
 
-async function exaMcpCall(name: string, args: Record<string, unknown>): Promise<any> {
+async function exaMcpCall(
+  name: string,
+  args: Record<string, unknown>,
+): Promise<any> {
   const endpoint = process.env.EXA_MCP_URL ?? "https://mcp.exa.ai/mcp";
-  const headers = { "content-type": "application/json", accept: "application/json, text/event-stream" };
+  const headers = {
+    "content-type": "application/json",
+    accept: "application/json, text/event-stream",
+  };
   const initialize = await fetch(endpoint, {
     method: "POST",
     headers,
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "memoryhold", version: "0.1" } } }),
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "memoryhold", version: "0.1" },
+      },
+    }),
   });
-  if (!initialize.ok) throw new Error(`Exa MCP initialize failed: HTTP ${initialize.status}`);
+  if (!initialize.ok)
+    throw new Error(`Exa MCP initialize failed: HTTP ${initialize.status}`);
   const sessionId = initialize.headers.get("mcp-session-id");
-  const callHeaders = sessionId ? { ...headers, "mcp-session-id": sessionId } : headers;
+  const callHeaders = sessionId
+    ? { ...headers, "mcp-session-id": sessionId }
+    : headers;
   const response = await fetch(endpoint, {
     method: "POST",
     headers: callHeaders,
-    body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name, arguments: args } }),
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name, arguments: args },
+    }),
   });
-  if (!response.ok) throw new Error(`Exa MCP ${name} failed: HTTP ${response.status}`);
+  if (!response.ok)
+    throw new Error(`Exa MCP ${name} failed: HTTP ${response.status}`);
   const payload = parseSseJson(await response.text());
-  if (payload.error) throw new Error(payload.error.message ?? `Exa MCP ${name} failed`);
+  if (payload.error)
+    throw new Error(payload.error.message ?? `Exa MCP ${name} failed`);
   return payload.result;
 }
 
@@ -139,24 +217,48 @@ function parseExaMcpSearchText(text: string): WebSearchResult[] {
     const url = block.match(/(?:^|\n)URL:\s*(\S+)/)?.[1]?.trim();
     if (!title || !url) continue;
     const snippet = block.replace(/[\s\S]*?Highlights:\s*/i, "").trim();
-    results.push({ title, url, snippet: truncate(snippet, MAX_SEARCH_SNIPPET_CHARS), source: "exa" });
+    results.push({
+      title,
+      url,
+      snippet: truncate(snippet, MAX_SEARCH_SNIPPET_CHARS),
+      source: "exa",
+    });
   }
   return results;
 }
 
-async function exaMcpSearch(query: string, numResults: number): Promise<WebSearchResult[]> {
+async function exaMcpSearch(
+  query: string,
+  numResults: number,
+): Promise<WebSearchResult[]> {
   const result = await exaMcpCall("web_search_exa", { query, numResults });
-  const text = (result.content ?? []).map((item: any) => item?.type === "text" ? item.text : "").join("\n\n");
+  const text = (result.content ?? [])
+    .map((item: any) => (item?.type === "text" ? item.text : ""))
+    .join("\n\n");
   return parseExaMcpSearchText(text).slice(0, numResults);
 }
 
 async function exaMcpFetch(url: string): Promise<WebFetchResult> {
-  const result = await exaMcpCall("web_fetch_exa", { urls: [url], maxCharacters: MAX_FETCH_CHARS });
-  const text = (result.content ?? []).map((item: any) => item?.type === "text" ? item.text : "").join("\n\n");
+  const result = await exaMcpCall("web_fetch_exa", {
+    urls: [url],
+    maxCharacters: MAX_FETCH_CHARS,
+  });
+  const text = (result.content ?? [])
+    .map((item: any) => (item?.type === "text" ? item.text : ""))
+    .join("\n\n");
   const title = text.match(/(?:^|\n)Title:\s*(.+)/)?.[1]?.trim();
   const finalUrl = text.match(/(?:^|\n)URL:\s*(\S+)/)?.[1]?.trim() ?? url;
-  const body = text.replace(/^(Title|URL|Published|Author):.*$/gim, "").replace(/^Text:\s*/im, "").trim();
-  return { url, finalUrl, title, contentType: "text/markdown", text: truncate(body || text, MAX_FETCH_CHARS) };
+  const body = text
+    .replace(/^(Title|URL|Published|Author):.*$/gim, "")
+    .replace(/^Text:\s*/im, "")
+    .trim();
+  return {
+    url,
+    finalUrl,
+    title,
+    contentType: "text/markdown",
+    text: truncate(body || text, MAX_FETCH_CHARS),
+  };
 }
 
 function duckUrl(raw: string): string {
@@ -170,11 +272,15 @@ function duckUrl(raw: string): string {
   }
 }
 
-async function duckDuckGoSearch(query: string, numResults: number): Promise<WebSearchResult[]> {
+async function duckDuckGoSearch(
+  query: string,
+  numResults: number,
+): Promise<WebSearchResult[]> {
   const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
   const { text: html } = await fetchText(url, { maxBytes: 800_000 });
   const results: WebSearchResult[] = [];
-  const linkRegex = /<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  const linkRegex =
+    /<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
   const links = Array.from(html.matchAll(linkRegex));
   for (let i = 0; i < links.length; i++) {
     const link = links[i];
@@ -182,16 +288,29 @@ async function duckDuckGoSearch(query: string, numResults: number): Promise<WebS
     if (!href.startsWith("http")) continue;
     const nextIndex = links[i + 1]?.index ?? html.length;
     const block = html.slice(link.index ?? 0, nextIndex);
-    const snippet = block.match(/<a[^>]+class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/i)?.[1]
-      ?? block.match(/<div[^>]+class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/div>/i)?.[1]
-      ?? "";
-    results.push({ title: truncate(stripHtml(link[2]), 180), url: href, snippet: truncate(stripHtml(snippet), MAX_SEARCH_SNIPPET_CHARS), source: "duckduckgo" });
+    const snippet =
+      block.match(
+        /<a[^>]+class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/i,
+      )?.[1] ??
+      block.match(
+        /<div[^>]+class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      )?.[1] ??
+      "";
+    results.push({
+      title: truncate(stripHtml(link[2]), 180),
+      url: href,
+      snippet: truncate(stripHtml(snippet), MAX_SEARCH_SNIPPET_CHARS),
+      source: "duckduckgo",
+    });
     if (results.length >= numResults) break;
   }
   return results;
 }
 
-export async function searchWeb(query: string, numResults = 5): Promise<WebSearchResult[]> {
+export async function searchWeb(
+  query: string,
+  numResults = 5,
+): Promise<WebSearchResult[]> {
   const limit = Math.max(1, Math.min(10, numResults));
   try {
     const exa = await exaApiSearch(query, limit);
@@ -217,27 +336,65 @@ export async function fetchWebPage(inputUrl: string): Promise<WebFetchResult> {
   }
 
   const { text: raw, finalUrl, contentType } = await fetchText(url);
-  const isHtml = /html/i.test(contentType ?? "") || /<html|<body|<article|<main/i.test(raw.slice(0, 2000));
-  const title = isHtml ? htmlAttr(raw, /<title[^>]*>([\s\S]*?)<\/title>/i) : undefined;
-  const description = isHtml ? htmlAttr(raw, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["'][^>]*>/i) ?? htmlAttr(raw, /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["'][^>]*>/i) : undefined;
+  const isHtml =
+    /html/i.test(contentType ?? "") ||
+    /<html|<body|<article|<main/i.test(raw.slice(0, 2000));
+  const title = isHtml
+    ? htmlAttr(raw, /<title[^>]*>([\s\S]*?)<\/title>/i)
+    : undefined;
+  const description = isHtml
+    ? (htmlAttr(
+        raw,
+        /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["'][^>]*>/i,
+      ) ??
+      htmlAttr(
+        raw,
+        /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["'][^>]*>/i,
+      ))
+    : undefined;
   const text = isHtml ? stripHtml(raw) : raw;
-  return { url, finalUrl, title, description, contentType, text: truncate(text, MAX_FETCH_CHARS) };
+  return {
+    url,
+    finalUrl,
+    title,
+    description,
+    contentType,
+    text: truncate(text, MAX_FETCH_CHARS),
+  };
 }
 
 export function createWebSearchTool(): AgentTool<any> {
   return {
     name: "web_search",
     label: "Web Search",
-    description: "Search the web for current information. Uses EXA_API_KEY when configured, otherwise Exa's public MCP endpoint, then DuckDuckGo HTML as fallback.",
+    description:
+      "Search the web for current information. Uses EXA_API_KEY when configured, otherwise Exa's public MCP endpoint, then DuckDuckGo HTML as fallback.",
     parameters: Type.Object({
       query: Type.String({ description: "Search query" }),
-      numResults: Type.Optional(Type.Number({ description: "Number of results to return, 1-10" })),
+      numResults: Type.Optional(
+        Type.Number({ description: "Number of results to return, 1-10" }),
+      ),
     }),
     async execute(_toolCallId, params) {
-      const { query, numResults } = params as { query: string; numResults?: number };
+      const { query, numResults } = params as {
+        query: string;
+        numResults?: number;
+      };
       const results = await searchWeb(query, numResults ?? 5);
       return {
-        content: [{ type: "text", text: results.length ? results.map((r, i) => `${i + 1}. ${r.title}\n${r.url}\n${r.snippet ?? ""}`).join("\n\n") : `No results found for: ${query}` }],
+        content: [
+          {
+            type: "text",
+            text: results.length
+              ? results
+                  .map(
+                    (r, i) =>
+                      `${i + 1}. ${r.title}\n${r.url}\n${r.snippet ?? ""}`,
+                  )
+                  .join("\n\n")
+              : `No results found for: ${query}`,
+          },
+        ],
         details: { query, results },
       };
     },
@@ -248,14 +405,21 @@ export function createWebFetchTool(): AgentTool<any> {
   return {
     name: "web_fetch",
     label: "Web Fetch",
-    description: "Fetch a URL and extract readable page text for citation or analysis. Uses Exa's public MCP endpoint with local fetch fallback.",
+    description:
+      "Fetch a URL and extract readable page text for citation or analysis. Uses Exa's public MCP endpoint with local fetch fallback.",
     parameters: Type.Object({
       url: Type.String({ description: "http(s) URL to fetch" }),
     }),
     async execute(_toolCallId, params) {
       const { url } = params as { url: string };
       const page = await fetchWebPage(url);
-      const header = [`URL: ${page.finalUrl}`, page.title ? `Title: ${page.title}` : "", page.description ? `Description: ${page.description}` : ""].filter(Boolean).join("\n");
+      const header = [
+        `URL: ${page.finalUrl}`,
+        page.title ? `Title: ${page.title}` : "",
+        page.description ? `Description: ${page.description}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
       return {
         content: [{ type: "text", text: `${header}\n\n${page.text}`.trim() }],
         details: page,

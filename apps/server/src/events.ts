@@ -19,6 +19,7 @@ export class EventHub {
   }
 
   publish(sessionSlug: string, event: ServerEvent): void {
-    for (const listener of this.listeners.get(sessionSlug) ?? []) listener(event);
+    for (const listener of this.listeners.get(sessionSlug) ?? [])
+      listener(event);
   }
 }

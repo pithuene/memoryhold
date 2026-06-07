@@ -20,5 +20,7 @@ export function messageText(message: any): string {
 }
 
 export function entriesToMessages(entries: SessionTreeEntry[]): any[] {
-  return entries.filter((entry: any) => entry.type === "message").map((entry: any) => entry.message);
+  return entries
+    .filter((entry: any) => entry.type === "message")
+    .map((entry: any) => entry.message);
 }

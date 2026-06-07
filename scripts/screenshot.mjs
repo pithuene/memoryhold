@@ -8,8 +8,13 @@ const openFirstSession = process.env.MEMORYHOLD_OPEN_FIRST_SESSION === "1";
 const openSettings = process.env.MEMORYHOLD_OPEN_SETTINGS === "1";
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
-page.on("console", (msg) => console.log(`[browser:${msg.type()}] ${msg.text()}`));
+const page = await browser.newPage({
+  viewport: { width, height },
+  deviceScaleFactor: 1,
+});
+page.on("console", (msg) =>
+  console.log(`[browser:${msg.type()}] ${msg.text()}`),
+);
 page.on("pageerror", (err) => console.error(`[browser:error] ${err.message}`));
 await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
 if (openSettings) {

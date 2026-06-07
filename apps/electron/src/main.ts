@@ -24,20 +24,31 @@ const webUrl = process.env.MEMORYHOLD_WEB_URL ?? `http://localhost:5173`;
 function normalizeBackendUrl(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return "";
-  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  const withProtocol = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `http://${trimmed}`;
   return withProtocol.replace(/\/+$/, "");
 }
 
 function backendMode(config = activeConfig): "local" | "remote" {
-  return process.env.MEMORYHOLD_REMOTE_URL || config.backendMode === "remote" ? "remote" : "local";
+  return process.env.MEMORYHOLD_REMOTE_URL || config.backendMode === "remote"
+    ? "remote"
+    : "local";
 }
 
 function remoteBackendUrl(config = activeConfig) {
-  return normalizeBackendUrl(process.env.MEMORYHOLD_REMOTE_URL ?? config.remoteBackendUrl ?? "");
+  return normalizeBackendUrl(
+    process.env.MEMORYHOLD_REMOTE_URL ?? config.remoteBackendUrl ?? "",
+  );
 }
 
 function remoteBackendToken(config = activeConfig) {
-  return process.env.MEMORYHOLD_REMOTE_TOKEN ?? process.env.MEMORYHOLD_ACCESS_TOKEN ?? config.remoteBackendToken ?? "";
+  return (
+    process.env.MEMORYHOLD_REMOTE_TOKEN ??
+    process.env.MEMORYHOLD_ACCESS_TOKEN ??
+    config.remoteBackendToken ??
+    ""
+  );
 }
 
 function localBackendUrl() {
@@ -69,7 +80,8 @@ async function chooseConversationsDir(): Promise<string | undefined> {
   app.focus({ steal: true });
   const result = await dialog.showOpenDialog({
     title: "Choose Memoryhold conversations folder",
-    message: "Choose where Memoryhold should store local conversations and attachments.",
+    message:
+      "Choose where Memoryhold should store local conversations and attachments.",
     properties: ["openDirectory", "createDirectory"],
     buttonLabel: "Use this folder",
   });
@@ -79,14 +91,19 @@ async function chooseConversationsDir(): Promise<string | undefined> {
 async function pickAndSwitchConversationsDir() {
   const selected = await chooseConversationsDir();
   if (!selected) return;
-  activeConfig = { ...activeConfig, backendMode: "local", conversationsDir: selected };
+  activeConfig = {
+    ...activeConfig,
+    backendMode: "local",
+    conversationsDir: selected,
+  };
   writeConfig(activeConfig);
   await restartServer(selected);
   await loadRenderer();
 }
 
 async function getConversationsDir(): Promise<string> {
-  const existing = process.env.CONVERSATIONS_DIR ?? activeConfig.conversationsDir;
+  const existing =
+    process.env.CONVERSATIONS_DIR ?? activeConfig.conversationsDir;
   if (existing) return existing;
 
   const selected = await chooseConversationsDir();
@@ -94,17 +111,25 @@ async function getConversationsDir(): Promise<string> {
     app.quit();
     throw new Error("No conversations directory selected");
   }
-  activeConfig = { ...activeConfig, backendMode: "local", conversationsDir: selected };
+  activeConfig = {
+    ...activeConfig,
+    backendMode: "local",
+    conversationsDir: selected,
+  };
   writeConfig(activeConfig);
   return selected;
 }
 
 function projectRoot() {
-  return process.env.MEMORYHOLD_PROJECT_ROOT ? resolve(process.env.MEMORYHOLD_PROJECT_ROOT) : resolve(app.getAppPath(), "../..");
+  return process.env.MEMORYHOLD_PROJECT_ROOT
+    ? resolve(process.env.MEMORYHOLD_PROJECT_ROOT)
+    : resolve(app.getAppPath(), "../..");
 }
 
 function iconPath() {
-  return isDev ? join(projectRoot(), "apps/electron/assets/icon.png") : join(process.resourcesPath, "icon.png");
+  return isDev
+    ? join(projectRoot(), "apps/electron/assets/icon.png")
+    : join(process.resourcesPath, "icon.png");
 }
 
 function spawnPnpm(args: string[], env = process.env) {
@@ -128,20 +153,28 @@ async function restartServer(conversationsDir: string) {
 }
 
 function startServer(conversationsDir: string) {
-  const env = { ...process.env, CONVERSATIONS_DIR: conversationsDir, PORT: String(serverPort) };
+  const env = {
+    ...process.env,
+    CONVERSATIONS_DIR: conversationsDir,
+    PORT: String(serverPort),
+  };
   if (isDev) {
     serverProcess = spawnPnpm(["--filter", "@memoryhold/server", "dev"], env);
   } else {
     const appBundlePath = join(process.resourcesPath, "app.asar");
-    serverProcess = spawn(process.execPath, [join(appBundlePath, "apps", "server", "dist", "index.js")], {
-      env: {
-        ...env,
-        ELECTRON_RUN_AS_NODE: "1",
-        MEMORYHOLD_WEB_DIST: join(appBundlePath, "apps", "web", "dist"),
+    serverProcess = spawn(
+      process.execPath,
+      [join(appBundlePath, "apps", "server", "dist", "index.js")],
+      {
+        env: {
+          ...env,
+          ELECTRON_RUN_AS_NODE: "1",
+          MEMORYHOLD_WEB_DIST: join(appBundlePath, "apps", "web", "dist"),
+        },
+        cwd: process.resourcesPath,
+        stdio: "inherit",
       },
-      cwd: process.resourcesPath,
-      stdio: "inherit",
-    });
+    );
   }
 }
 
@@ -163,24 +196,46 @@ async function loadRenderer() {
   if (!mainWindow) return;
   const apiUrl = rendererApiUrl();
   if (!apiUrl) {
-    await dialog.showMessageBox({ type: "warning", message: "No remote backend URL is configured." });
+    await dialog.showMessageBox({
+      type: "warning",
+      message: "No remote backend URL is configured.",
+    });
     return;
   }
   if (isDev) {
     const url = new URL(webUrl);
     url.searchParams.set("memoryholdElectron", "1");
     url.searchParams.set("memoryholdApiUrl", apiUrl);
-    if (backendMode() === "remote" && remoteBackendToken()) url.searchParams.set("memoryholdToken", remoteBackendToken());
+    if (backendMode() === "remote" && remoteBackendToken())
+      url.searchParams.set("memoryholdToken", remoteBackendToken());
     await mainWindow.loadURL(url.toString());
     return;
   }
   if (backendMode() === "local") {
-    await mainWindow.loadURL(`${localBackendUrl()}/?memoryholdElectron=1&memoryholdApiUrl=${encodeURIComponent(apiUrl)}`);
+    await mainWindow.loadURL(
+      `${localBackendUrl()}/?memoryholdElectron=1&memoryholdApiUrl=${encodeURIComponent(apiUrl)}`,
+    );
     return;
   }
-  await mainWindow.loadFile(join(process.resourcesPath, "app.asar", "apps", "web", "dist", "index.html"), {
-    query: { memoryholdElectron: "1", memoryholdApiUrl: apiUrl, ...(remoteBackendToken() ? { memoryholdToken: remoteBackendToken() } : {}) },
-  });
+  await mainWindow.loadFile(
+    join(
+      process.resourcesPath,
+      "app.asar",
+      "apps",
+      "web",
+      "dist",
+      "index.html",
+    ),
+    {
+      query: {
+        memoryholdElectron: "1",
+        memoryholdApiUrl: apiUrl,
+        ...(remoteBackendToken()
+          ? { memoryholdToken: remoteBackendToken() }
+          : {}),
+      },
+    },
+  );
 }
 
 async function switchToRemoteFromClipboard() {
@@ -188,17 +243,32 @@ async function switchToRemoteFromClipboard() {
   const url = normalizeBackendUrl(clipboardParts[0] ?? "");
   const token = clipboardParts[1] ?? "";
   if (!url) {
-    await dialog.showMessageBox({ type: "warning", message: "Clipboard does not contain a server URL." });
+    await dialog.showMessageBox({
+      type: "warning",
+      message: "Clipboard does not contain a server URL.",
+    });
     return;
   }
-  const health = await fetch(`${url}/api/health`).then((r) => r.ok).catch(() => false);
+  const health = await fetch(`${url}/api/health`)
+    .then((r) => r.ok)
+    .catch(() => false);
   if (!health) {
-    const result = await dialog.showMessageBox({ type: "warning", buttons: ["Use Anyway", "Cancel"], defaultId: 1, message: `Could not reach ${url}. Use it anyway?` });
+    const result = await dialog.showMessageBox({
+      type: "warning",
+      buttons: ["Use Anyway", "Cancel"],
+      defaultId: 1,
+      message: `Could not reach ${url}. Use it anyway?`,
+    });
     if (result.response !== 0) return;
   }
   serverProcess?.kill();
   serverProcess = undefined;
-  activeConfig = { ...activeConfig, backendMode: "remote", remoteBackendUrl: url, remoteBackendToken: token || activeConfig.remoteBackendToken };
+  activeConfig = {
+    ...activeConfig,
+    backendMode: "remote",
+    remoteBackendUrl: url,
+    remoteBackendToken: token || activeConfig.remoteBackendToken,
+  };
   writeConfig(activeConfig);
   await loadRenderer();
 }
@@ -249,7 +319,8 @@ async function createWindow() {
     title: "Memoryhold",
     icon: iconPath(),
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
-    trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 18 } : undefined,
+    trafficLightPosition:
+      process.platform === "darwin" ? { x: 16, y: 18 } : undefined,
     webPreferences: {
       additionalArguments: ["--memoryhold-electron"],
       nodeIntegration: false,
@@ -267,7 +338,16 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   activeConfig = readConfig();
-  if (process.env.MEMORYHOLD_REMOTE_URL) activeConfig = { ...activeConfig, backendMode: "remote", remoteBackendUrl: process.env.MEMORYHOLD_REMOTE_URL, remoteBackendToken: process.env.MEMORYHOLD_REMOTE_TOKEN ?? process.env.MEMORYHOLD_ACCESS_TOKEN ?? activeConfig.remoteBackendToken };
+  if (process.env.MEMORYHOLD_REMOTE_URL)
+    activeConfig = {
+      ...activeConfig,
+      backendMode: "remote",
+      remoteBackendUrl: process.env.MEMORYHOLD_REMOTE_URL,
+      remoteBackendToken:
+        process.env.MEMORYHOLD_REMOTE_TOKEN ??
+        process.env.MEMORYHOLD_ACCESS_TOKEN ??
+        activeConfig.remoteBackendToken,
+    };
   installMenu();
   if (backendMode() === "local") {
     const conversationsDir = await getConversationsDir();

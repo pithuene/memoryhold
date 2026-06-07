@@ -2,8 +2,16 @@ import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const width = Number(process.env.CHATGPT_REF_WIDTH ?? process.env.MEMORYHOLD_SCREENSHOT_WIDTH ?? 1440);
-const height = Number(process.env.CHATGPT_REF_HEIGHT ?? process.env.MEMORYHOLD_SCREENSHOT_HEIGHT ?? 1000);
+const width = Number(
+  process.env.CHATGPT_REF_WIDTH ??
+    process.env.MEMORYHOLD_SCREENSHOT_WIDTH ??
+    1440,
+);
+const height = Number(
+  process.env.CHATGPT_REF_HEIGHT ??
+    process.env.MEMORYHOLD_SCREENSHOT_HEIGHT ??
+    1000,
+);
 const outDir = process.env.CHATGPT_REF_DIR ?? "tmp";
 const prefix = process.env.CHATGPT_REF_PREFIX ?? "chatgpt-reference";
 const waitMs = Number(process.env.CHATGPT_REF_WAIT_MS ?? 120_000);
@@ -28,15 +36,20 @@ try {
   });
 } catch (error) {
   if (browserChannel) {
-    console.warn(`Could not launch Chromium channel '${browserChannel}', falling back to bundled Playwright Chromium.`);
+    console.warn(
+      `Could not launch Chromium channel '${browserChannel}', falling back to bundled Playwright Chromium.`,
+    );
     console.warn(error?.message ?? error);
-    context = await chromium.launchPersistentContext(userDataDir, launchOptions);
+    context = await chromium.launchPersistentContext(
+      userDataDir,
+      launchOptions,
+    );
   } else {
     throw error;
   }
 }
 
-const page = context.pages()[0] ?? await context.newPage();
+const page = context.pages()[0] ?? (await context.newPage());
 console.log(`Opening ${url}`);
 console.log(`Using persistent profile: ${userDataDir}`);
 
@@ -44,7 +57,9 @@ await page.goto(url, { waitUntil: "domcontentloaded" });
 
 if (setupMode) {
   console.log("Setup mode: log in to ChatGPT in the opened browser window.");
-  console.log("When login is complete, close the browser window. The profile/session will be saved.");
+  console.log(
+    "When login is complete, close the browser window. The profile/session will be saved.",
+  );
   await new Promise((resolve) => context.on("close", resolve));
   process.exit(0);
 }

@@ -41,7 +41,11 @@ export interface ThinkingLevelChangeEntry extends SessionTreeEntryBase {
   thinkingLevel: string;
 }
 
-export type SessionTreeEntry = MessageEntry | ModelChangeEntry | ThinkingLevelChangeEntry | (SessionTreeEntryBase & Record<string, unknown>);
+export type SessionTreeEntry =
+  | MessageEntry
+  | ModelChangeEntry
+  | ThinkingLevelChangeEntry
+  | (SessionTreeEntryBase & Record<string, unknown>);
 
 export interface CreateSessionRequest {
   title?: string;

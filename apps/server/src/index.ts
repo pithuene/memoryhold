@@ -1,6 +1,10 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { getModels, getProviders, getSupportedThinkingLevels } from "@earendil-works/pi-ai";
+import {
+  getModels,
+  getProviders,
+  getSupportedThinkingLevels,
+} from "@earendil-works/pi-ai";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { existsSync } from "node:fs";
@@ -23,23 +27,42 @@ const authStore = new AuthStore(conversationsDir);
 const events = new EventHub();
 const runner = new SessionRunner(repo, events, authStore);
 const app = new Hono();
-const accessToken = process.env.MEMORYHOLD_ACCESS_TOKEN ?? process.env.MEMORYHOLD_TOKEN ?? "";
-const allowedOrigins = (process.env.MEMORYHOLD_ALLOWED_ORIGINS ?? "").split(",").map((origin) => origin.trim()).filter(Boolean);
+const accessToken =
+  process.env.MEMORYHOLD_ACCESS_TOKEN ?? process.env.MEMORYHOLD_TOKEN ?? "";
+const allowedOrigins = (process.env.MEMORYHOLD_ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-app.use("*", cors({
-  origin: allowedOrigins.length ? (origin) => allowedOrigins.includes(origin) ? origin : "" : "*",
-  allowHeaders: ["Content-Type", "Authorization", "X-Memoryhold-Token"],
-  allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-}));
+app.use(
+  "*",
+  cors({
+    origin: allowedOrigins.length
+      ? (origin) => (allowedOrigins.includes(origin) ? origin : "")
+      : "*",
+    allowHeaders: ["Content-Type", "Authorization", "X-Memoryhold-Token"],
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  }),
+);
 
-app.get("/api/health", (c) => c.json({ ok: true, authRequired: Boolean(accessToken) }));
+app.get("/api/health", (c) =>
+  c.json({ ok: true, authRequired: Boolean(accessToken) }),
+);
 
 app.use("/api/*", async (c, next) => {
   if (!accessToken || c.req.path === "/api/health") return next();
   const auth = c.req.header("Authorization") ?? "";
   const bearer = auth.match(/^Bearer\s+(.+)$/i)?.[1];
-  const token = bearer ?? c.req.header("X-Memoryhold-Token") ?? c.req.query("access_token") ?? "";
-  if (token !== accessToken) return c.text("Unauthorized: invalid or missing Memoryhold access token", 401);
+  const token =
+    bearer ??
+    c.req.header("X-Memoryhold-Token") ??
+    c.req.query("access_token") ??
+    "";
+  if (token !== accessToken)
+    return c.text(
+      "Unauthorized: invalid or missing Memoryhold access token",
+      401,
+    );
   return next();
 });
 
@@ -67,22 +90,27 @@ app.post("/api/sessions", async (c) => {
   return c.json(metadata, 201);
 });
 
-app.get("/api/sessions/:slug", async (c) => c.json(await repo.get(c.req.param("slug"))));
+app.get("/api/sessions/:slug", async (c) =>
+  c.json(await repo.get(c.req.param("slug"))),
+);
 
 app.patch("/api/sessions/:slug", async (c) => {
   const slug = c.req.param("slug");
-  if (runner.isStreaming(slug)) return c.text("Cannot rename while a response is streaming", 409);
+  if (runner.isStreaming(slug))
+    return c.text("Cannot rename while a response is streaming", 409);
   const body = await c.req.json().catch(() => ({}));
   const metadata = await repo.rename(slug, String(body.title ?? ""));
   runner.reset(slug);
   events.publish(slug, { type: "session_updated", metadata });
-  if (metadata.slug !== slug) events.publish(metadata.slug, { type: "session_updated", metadata });
+  if (metadata.slug !== slug)
+    events.publish(metadata.slug, { type: "session_updated", metadata });
   return c.json(metadata);
 });
 
 app.delete("/api/sessions/:slug", async (c) => {
   const slug = c.req.param("slug");
-  if (runner.isStreaming(slug)) return c.text("Cannot delete while a response is streaming", 409);
+  if (runner.isStreaming(slug))
+    return c.text("Cannot delete while a response is streaming", 409);
   runner.reset(slug);
   await repo.delete(slug);
   events.publish(slug, { type: "session_deleted", slug });
@@ -92,39 +120,59 @@ app.delete("/api/sessions/:slug", async (c) => {
 app.post("/api/sessions/:slug/attachments", async (c) => {
   const slug = c.req.param("slug");
   const form = await c.req.formData();
-  const files = form.getAll("files").filter((value): value is File => value instanceof File);
+  const files = form
+    .getAll("files")
+    .filter((value): value is File => value instanceof File);
   const attachments = [];
-  for (const file of files) attachments.push(await repo.saveAttachment(slug, file));
+  for (const file of files)
+    attachments.push(await repo.saveAttachment(slug, file));
   return c.json({ attachments });
 });
 
 app.get("/api/sessions/:slug/attachments/:filename", async (c) => {
-  const bytes = await repo.readAttachment(c.req.param("slug"), `attachments/${c.req.param("filename")}`);
+  const bytes = await repo.readAttachment(
+    c.req.param("slug"),
+    `attachments/${c.req.param("filename")}`,
+  );
   return new Response(new Uint8Array(bytes));
 });
 
 app.post("/api/sessions/:slug/messages", async (c) => {
   const slug = c.req.param("slug");
   const body = (await c.req.json()) as SendMessageRequest;
-  const result = await runner.enqueueUserMessage(slug, body.content, body.attachments ?? [], {
-    model: body.model,
-    thinkingLevel: body.thinkingLevel,
-  });
+  const result = await runner.enqueueUserMessage(
+    slug,
+    body.content,
+    body.attachments ?? [],
+    {
+      model: body.model,
+      thinkingLevel: body.thinkingLevel,
+    },
+  );
   return c.json({ ok: true, ...result });
 });
 
 app.patch("/api/sessions/:slug/messages/:entryId", async (c) => {
   const slug = c.req.param("slug");
-  if (runner.isStreaming(slug)) return c.text("Cannot edit while a response is streaming", 409);
+  if (runner.isStreaming(slug))
+    return c.text("Cannot edit while a response is streaming", 409);
   const body = (await c.req.json()) as SendMessageRequest;
-  const attachments = await repo.truncateBeforeMessage(slug, c.req.param("entryId"));
+  const attachments = await repo.truncateBeforeMessage(
+    slug,
+    c.req.param("entryId"),
+  );
   runner.reset(slug);
   const { metadata } = await repo.get(slug);
   events.publish(slug, { type: "session_updated", metadata });
-  const result = await runner.enqueueUserMessage(slug, body.content, attachments, {
-    model: body.model,
-    thinkingLevel: body.thinkingLevel,
-  });
+  const result = await runner.enqueueUserMessage(
+    slug,
+    body.content,
+    attachments,
+    {
+      model: body.model,
+      thinkingLevel: body.thinkingLevel,
+    },
+  );
   return c.json({ ok: true, ...result });
 });
 
@@ -133,7 +181,10 @@ app.get("/api/sessions/:slug/events", (c) => {
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
-      const send = (event: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+      const send = (event: unknown) =>
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+        );
       send({ type: "connected" });
       const unsubscribe = events.subscribe(slug, send as any);
       c.req.raw.signal.addEventListener("abort", () => {
@@ -160,7 +211,10 @@ if (webDistDir && existsSync(webDistDir)) {
 
 app.post("/api/tools/web-search", async (c) => {
   const { query, numResults } = await c.req.json();
-  return c.json({ query, results: await searchWeb(String(query ?? ""), Number(numResults ?? 5)) });
+  return c.json({
+    query,
+    results: await searchWeb(String(query ?? ""), Number(numResults ?? 5)),
+  });
 });
 
 app.post("/api/tools/web-fetch", async (c) => {
