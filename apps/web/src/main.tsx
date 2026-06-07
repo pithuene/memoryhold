@@ -543,7 +543,7 @@ function App() {
               </small>
             </div>
           </div>
-          <span className="status">{isStreaming ? "Streaming" : "Ready"}</span>
+          {isStreaming && <span className="status">Streaming</span>}
         </header>
         {errorMessage && (
           <div className="error" role="alert">
