@@ -646,10 +646,8 @@ function App() {
                     ) : null,
                   )}
                   {(isStreaming || streamingContent) && (
-                    <div className="msg assistant">
-                      <Avatar>M</Avatar>
+                    <div className="msg assistant no-message-chrome">
                       <div className="message-body">
-                        <div className="role">assistant · streaming</div>
                         <div className="bubble">
                           {streamingContent ? (
                             <Markdown text={streamingContent} />
@@ -1073,16 +1071,12 @@ function Message({
       className={cn(
         "msg",
         role,
+        "no-message-chrome",
         entry.message.stopReason === "error" && "error-msg",
         editing && "editing",
       )}
     >
-      <Avatar>{role === "user" ? "U" : role === "tool" ? "T" : "M"}</Avatar>
       <div className="message-body">
-        <div className="role">
-          {role}
-          {entry.message.stopReason === "error" ? " · error" : ""}
-        </div>
         <div className="bubble">
           {editing ? (
             <div className="edit-box">

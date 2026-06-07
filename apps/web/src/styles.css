@@ -244,6 +244,9 @@ small {
   gap: 12px;
   margin: 0 0 22px;
 }
+.msg.no-message-chrome {
+  grid-template-columns: minmax(0, 1fr);
+}
 .avatar {
   width: 32px;
   height: 32px;
@@ -259,9 +262,10 @@ small {
   background: #e5e7eb;
   color: #111;
 }
-.msg.tool .avatar {
-  background: #fef3c7;
-  color: #92400e;
+.msg.tool .message-body {
+  border-left: 3px solid #facc15;
+  color: #52525b;
+  padding-left: 12px;
 }
 .message-body {
   min-width: 0;
@@ -731,6 +735,9 @@ select,
     grid-template-columns: 28px minmax(0, 1fr);
     gap: 10px;
     margin-bottom: 18px;
+  }
+  .msg.no-message-chrome {
+    grid-template-columns: minmax(0, 1fr);
   }
   .avatar {
     width: 28px;
