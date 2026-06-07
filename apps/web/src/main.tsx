@@ -238,9 +238,16 @@ function App() {
       if (s) void openSession(s, false);
     }
   }, [sessions]);
-  useEffect(() => {
-    saveModelSettings(selectedProvider, selectedModel, thinkingLevel);
-  }, [selectedProvider, selectedModel, thinkingLevel]);
+  const updateModelDefaults = (
+    provider: string,
+    modelId: string,
+    thinkingLevelValue: string,
+  ) => {
+    setSelectedProvider(provider);
+    setSelectedModel(modelId);
+    setThinkingLevel(thinkingLevelValue);
+    saveModelSettings(provider, modelId, thinkingLevelValue);
+  };
   useEffect(() => {
     messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight });
   }, [entries, streamingContent]);
@@ -560,16 +567,27 @@ function App() {
             completeOAuth={completeOAuth}
             providers={providers}
             selectedProvider={selectedProvider}
-            setSelectedProvider={(p: string) => {
-              setSelectedProvider(p);
-              setSelectedModel(
-                providers.find((x) => x.id === p)?.models[0]?.id ?? "",
-              );
-            }}
+            setSelectedProvider={(provider: string) =>
+              updateModelDefaults(
+                provider,
+                providers.find(
+                  (availableProvider) => availableProvider.id === provider,
+                )?.models[0]?.id ?? "",
+                thinkingLevel,
+              )
+            }
             selectedModel={selectedModel}
-            setSelectedModel={setSelectedModel}
+            setSelectedModel={(modelId: string) =>
+              updateModelDefaults(selectedProvider, modelId, thinkingLevel)
+            }
             thinkingLevel={thinkingLevel}
-            setThinkingLevel={setThinkingLevel}
+            setThinkingLevel={(thinkingLevelValue: string) =>
+              updateModelDefaults(
+                selectedProvider,
+                selectedModel,
+                thinkingLevelValue,
+              )
+            }
             mobileRuntime={mobileRuntime}
             apiBaseUrl={apiBaseUrl}
             apiToken={apiToken}
